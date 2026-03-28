@@ -126,10 +126,15 @@ export function selectModelForPrompt(prompt: string, providerList: ProviderInfo[
 
   const findProvider = (name: string) => providerList.find((p) => p.name === name);
 
+  const openai = findProvider('OpenAI');
   const groq = findProvider('Groq');
   const openRouter = findProvider('OpenRouter');
 
   if (tier === 'powerful') {
+    if (openai) {
+      return { model: 'gpt-4o', provider: openai };
+    }
+
     if (openRouter) {
       return { model: 'anthropic/claude-3.5-sonnet', provider: openRouter };
     }
@@ -140,12 +145,12 @@ export function selectModelForPrompt(prompt: string, providerList: ProviderInfo[
   }
 
   if (tier === 'balanced') {
-    if (groq) {
-      return { model: 'llama-3.3-70b-versatile', provider: groq };
+    if (openai) {
+      return { model: 'gpt-4o-mini', provider: openai };
     }
 
-    if (openRouter) {
-      return { model: 'meta-llama/llama-3.3-70b-instruct', provider: openRouter };
+    if (groq) {
+      return { model: 'llama-3.3-70b-versatile', provider: groq };
     }
   }
 
@@ -154,9 +159,13 @@ export function selectModelForPrompt(prompt: string, providerList: ProviderInfo[
       return { model: 'llama-3.1-8b-instant', provider: groq };
     }
 
-    if (openRouter) {
-      return { model: 'meta-llama/llama-3.1-8b-instruct', provider: openRouter };
+    if (openai) {
+      return { model: 'gpt-4o-mini', provider: openai };
     }
+  }
+
+  if (openai) {
+    return { model: 'gpt-4o-mini', provider: openai };
   }
 
   if (groq) {
