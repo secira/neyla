@@ -63,6 +63,14 @@ export function Header() {
             <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Features</a>
             <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Examples</a>
             <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Community</a>
+            <a
+              href="/pricing"
+              className="flex items-center gap-1 hover:text-bolt-elements-textPrimary transition-colors font-semibold"
+              style={{ color: '#FF6B2B' }}
+            >
+              <div className="i-ph:crown-simple-fill text-base" />
+              Pricing
+            </a>
           </nav>
           <ClientOnly
             fallback={
