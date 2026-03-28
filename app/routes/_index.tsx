@@ -4,6 +4,7 @@ import { BaseChat } from '~/components/chat/BaseChat';
 import { Chat } from '~/components/chat/Chat.client';
 import { Header } from '~/components/header/Header';
 import SkechBackground from '~/components/ui/SkechBackground';
+import { Footer } from '~/components/layout/Footer';
 
 export const meta: MetaFunction = () => {
   return [
@@ -16,10 +17,11 @@ export const loader = () => json({});
 
 export default function Index() {
   return (
-    <div className="flex flex-col h-full w-full bg-bolt-elements-background-depth-1 relative">
+    <div className="flex flex-col min-h-full w-full bg-bolt-elements-background-depth-1 relative">
       <SkechBackground />
       <Header />
       <ClientOnly fallback={<BaseChat />}>{() => <Chat />}</ClientOnly>
+      <Footer />
     </div>
   );
 }
