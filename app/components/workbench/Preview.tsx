@@ -1011,8 +1011,15 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
               />
             </>
           ) : (
-            <div className="flex w-full h-full justify-center items-center bg-bolt-elements-background-depth-1 text-bolt-elements-textPrimary">
-              No preview available
+            <div className="flex flex-col w-full h-full justify-center items-center bg-bolt-elements-background-depth-1 select-none">
+              <div
+                className="flex items-center justify-center w-16 h-16 rounded-2xl mb-5 shadow-lg"
+                style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 55%, #784BA0 100%)' }}
+              >
+                <span className="text-white text-3xl font-black tracking-tight">S</span>
+              </div>
+              <p className="text-lg font-semibold text-bolt-elements-textSecondary mb-1">Your preview will appear here</p>
+              <p className="text-sm text-bolt-elements-textTertiary">Ask Skech to build something to get started</p>
             </div>
           )}
 

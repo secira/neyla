@@ -12,10 +12,10 @@ export function Header() {
   return (
     <header
       className={classNames(
-        'flex items-center px-4 sm:px-6 border-b h-[var(--header-height)] backdrop-blur-sm bg-white/80 dark:bg-gray-950/80 z-50',
+        'flex items-center px-4 sm:px-6 border-b h-[var(--header-height)] z-50',
         {
-          'border-transparent': !chat.started,
-          'border-bolt-elements-borderColor': chat.started,
+          'border-transparent backdrop-blur-sm bg-white/80 dark:bg-gray-950/80': !chat.started,
+          'border-bolt-elements-borderColor bg-bolt-elements-background-depth-2': chat.started,
         },
       )}
     >
