@@ -33,6 +33,9 @@ import { ChatBox } from './ChatBox';
 import type { DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/Inspector';
 import LlmErrorAlert from './LLMApiAlert';
+import { DatabasePanel } from '~/components/workspace/DatabasePanel';
+import { SecretsPanel } from '~/components/workspace/SecretsPanel';
+import { ConfigPanel } from '~/components/workspace/ConfigPanel';
 
 const TEXTAREA_MIN_HEIGHT = 76;
 
@@ -136,6 +139,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     ref,
   ) => {
     const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
+    const [activePanel, setActivePanel] = useState<'chat' | 'database' | 'secrets' | 'config'>('chat');
     const [apiKeys, setApiKeys] = useState<Record<string, string>>(getApiKeysFromCookies());
     const [modelList, setModelList] = useState<ModelInfo[]>([]);
     const [isModelSettingsCollapsed, setIsModelSettingsCollapsed] = useState(false);
@@ -349,7 +353,41 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       >
         <ClientOnly>{() => <Menu />}</ClientOnly>
         <div className="flex flex-col lg:flex-row overflow-y-auto w-full h-full">
-          <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
+          <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full overflow-hidden')}>
+            {chatStarted && (
+              <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 shrink-0">
+                {([
+                  { id: 'chat', icon: 'i-ph:chat-circle-dots', label: 'Chat' },
+                  { id: 'database', icon: 'i-ph:database', label: 'Database' },
+                  { id: 'secrets', icon: 'i-ph:key', label: 'Secrets' },
+                  { id: 'config', icon: 'i-ph:gear-six', label: 'Config' },
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActivePanel(tab.id)}
+                    className={classNames(
+                      'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors',
+                      activePanel === tab.id
+                        ? 'text-bolt-elements-textPrimary bg-bolt-elements-background-depth-3'
+                        : 'text-bolt-elements-textTertiary hover:text-bolt-elements-textSecondary hover:bg-bolt-elements-background-depth-3/50',
+                    )}
+                  >
+                    <div
+                      className={`${tab.icon} text-sm`}
+                      style={activePanel === tab.id ? { color: '#FF6B2B' } : {}}
+                    />
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {chatStarted && activePanel === 'database' && <DatabasePanel />}
+            {chatStarted && activePanel === 'secrets' && <SecretsPanel />}
+            {chatStarted && activePanel === 'config' && <ConfigPanel />}
+
+            {(!chatStarted || activePanel === 'chat') && (
+            <>
             {!chatStarted && (
               <div id="intro" className="mt-[10vh] max-w-3xl mx-auto text-center px-4 lg:px-0">
                 <div className="flex items-center justify-center gap-2 mb-6 animate-fade-in">
@@ -509,6 +547,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 {!chatStarted && <StarterTemplates />}
               </div>
             </div>
+            </>)}
           </div>
           <ClientOnly>
             {() => (
