@@ -13,6 +13,18 @@ dotenv.config();
 
 export default defineConfig((config) => {
   return {
+    server: {
+      host: '0.0.0.0',
+      port: 5000,
+      allowedHosts: true,
+      watch: {
+        ignored: [
+          '**/.local/**',
+          '**/node_modules/**',
+          '**/.git/**',
+        ],
+      },
+    },
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
     },
@@ -53,7 +65,10 @@ export default defineConfig((config) => {
         },
       }),
       UnoCSS(),
-      tsconfigPaths(),
+      tsconfigPaths({
+        ignoreConfigErrors: true,
+        projects: ['./tsconfig.json'],
+      }),
       chrome129IssuePlugin(),
       config.mode === 'production' && optimizeCssModules({ apply: 'build' }),
     ],
@@ -79,7 +94,7 @@ export default defineConfig((config) => {
         '**/cypress/**',
         '**/.{idea,git,cache,output,temp}/**',
         '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
-        '**/tests/preview/**', // Exclude preview tests that require Playwright
+        '**/tests/preview/**',
       ],
     },
   };
