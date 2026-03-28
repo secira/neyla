@@ -22,6 +22,7 @@ import type { Snapshot } from './types';
 import { webcontainer } from '~/lib/webcontainer';
 import { detectProjectCommands, createCommandActionsString } from '~/utils/projectCommands';
 import type { ContextAnnotation } from '~/types/context';
+import { syncMessagesToServer, loadWorkspaceFromServer } from './serverSync';
 
 export interface ChatHistoryItem {
   id: string;
@@ -180,7 +181,15 @@ ${value.content}
             chatId.set(storedMessages.id);
             chatMetadata.set(storedMessages.metadata);
           } else {
-            navigate('/', { replace: true });
+            const serverData = await loadWorkspaceFromServer(mixedId).catch(() => null);
+
+            if (serverData && serverData.messages.length > 0) {
+              setInitialMessages(serverData.messages);
+              setUrlId(mixedId);
+              description.set(serverData.title);
+            } else {
+              navigate('/', { replace: true });
+            }
           }
 
           setReady(true);
@@ -341,6 +350,11 @@ ${value.content}
         undefined,
         chatMetadata.get(),
       );
+
+      if (_urlId) {
+        const snap = await getSnapshot(db, finalChatId).catch(() => null);
+        syncMessagesToServer(_urlId, [...archivedMessages, ...messages], snap, description.get()).catch(() => {});
+      }
     },
     duplicateCurrentChat: async (listItemId: string) => {
       if (!db || (!mixedId && !listItemId)) {

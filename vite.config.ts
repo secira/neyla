@@ -18,10 +18,13 @@ export default defineConfig((config) => {
       port: 5000,
       allowedHosts: true,
       watch: {
+        usePolling: true,
+        interval: 1000,
         ignored: [
-          '**/.local/**',
           '**/node_modules/**',
           '**/.git/**',
+          '**/.local/**',
+          '**/server/**',
         ],
       },
     },

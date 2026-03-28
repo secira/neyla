@@ -4,6 +4,7 @@ import { chatStore } from '~/lib/stores/chat';
 import { classNames } from '~/utils/classNames';
 import { HeaderActionButtons } from './HeaderActionButtons.client';
 import { ChatDescription } from '~/lib/persistence/ChatDescription.client';
+import { HeaderUserMenu } from './HeaderUserMenu.client';
 
 export function Header() {
   const chat = useStore(chatStore);
@@ -47,8 +48,9 @@ export function Header() {
           </span>
           <ClientOnly>
             {() => (
-              <div>
+              <div className="flex items-center gap-3">
                 <HeaderActionButtons chatStarted={chat.started} />
+                <HeaderUserMenu />
               </div>
             )}
           </ClientOnly>
@@ -62,19 +64,27 @@ export function Header() {
             <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Examples</a>
             <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Community</a>
           </nav>
-          <a
-            href="#"
-            className="text-sm font-semibold px-4 py-1.5 rounded-full border border-bolt-elements-borderColor text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:border-orange-400 transition-colors"
+          <ClientOnly
+            fallback={
+              <div className="flex items-center gap-2">
+                <a
+                  href="/login"
+                  className="text-sm font-semibold px-4 py-1.5 rounded-full border border-bolt-elements-borderColor text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:border-orange-400 transition-colors"
+                >
+                  Sign in
+                </a>
+                <a
+                  href="/signup"
+                  className="text-sm font-semibold px-4 py-1.5 rounded-full text-white transition-all hover:opacity-90 hover:shadow-md"
+                  style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 100%)' }}
+                >
+                  Get started
+                </a>
+              </div>
+            }
           >
-            Sign in
-          </a>
-          <a
-            href="#"
-            className="text-sm font-semibold px-4 py-1.5 rounded-full text-white transition-all hover:opacity-90 hover:shadow-md"
-            style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 100%)' }}
-          >
-            Get started
-          </a>
+            {() => <HeaderUserMenu />}
+          </ClientOnly>
         </div>
       )}
     </header>
