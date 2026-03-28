@@ -10,32 +10,72 @@ export function Header() {
 
   return (
     <header
-      className={classNames('flex items-center px-4 border-b h-[var(--header-height)]', {
-        'border-transparent': !chat.started,
-        'border-bolt-elements-borderColor': chat.started,
-      })}
+      className={classNames(
+        'flex items-center px-4 sm:px-6 border-b h-[var(--header-height)] backdrop-blur-sm bg-white/80 dark:bg-gray-950/80 z-50',
+        {
+          'border-transparent': !chat.started,
+          'border-bolt-elements-borderColor': chat.started,
+        },
+      )}
     >
-      <div className="flex items-center gap-2 z-logo text-bolt-elements-textPrimary cursor-pointer">
-        <div className="i-ph:sidebar-simple-duotone text-xl" />
-        <a href="/" className="text-2xl font-semibold text-accent flex items-center">
-          {/* <span className="i-bolt:logo-text?mask w-[46px] inline-block" /> */}
-          <img src="/logo-light-styled.png" alt="logo" className="w-[90px] inline-block dark:hidden" />
-          <img src="/logo-dark-styled.png" alt="logo" className="w-[90px] inline-block hidden dark:block" />
+      <div className="flex items-center gap-2 z-logo cursor-pointer">
+        <div className="i-ph:sidebar-simple-duotone text-xl text-bolt-elements-textSecondary" />
+        <a href="/" className="flex items-center gap-1.5">
+          <div className="flex items-center gap-0.5">
+            <span
+              className="text-2xl font-black tracking-tight"
+              style={{
+                background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 50%, #784BA0 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              Skech
+            </span>
+            <span className="text-[10px] font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 px-1.5 py-0.5 rounded-full leading-none mb-1">
+              beta
+            </span>
+          </div>
         </a>
       </div>
-      {chat.started && ( // Display ChatDescription and HeaderActionButtons only when the chat has started.
+
+      {chat.started && (
         <>
           <span className="flex-1 px-4 truncate text-center text-bolt-elements-textPrimary">
             <ClientOnly>{() => <ChatDescription />}</ClientOnly>
           </span>
           <ClientOnly>
             {() => (
-              <div className="">
+              <div>
                 <HeaderActionButtons chatStarted={chat.started} />
               </div>
             )}
           </ClientOnly>
         </>
+      )}
+
+      {!chat.started && (
+        <div className="flex-1 flex items-center justify-end gap-3">
+          <nav className="hidden sm:flex items-center gap-6 text-sm font-medium text-bolt-elements-textSecondary">
+            <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Features</a>
+            <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Examples</a>
+            <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Community</a>
+          </nav>
+          <a
+            href="#"
+            className="text-sm font-semibold px-4 py-1.5 rounded-full border border-bolt-elements-borderColor text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:border-orange-400 transition-colors"
+          >
+            Sign in
+          </a>
+          <a
+            href="#"
+            className="text-sm font-semibold px-4 py-1.5 rounded-full text-white transition-all hover:opacity-90 hover:shadow-md"
+            style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 100%)' }}
+          >
+            Get started
+          </a>
+        </div>
       )}
     </header>
   );

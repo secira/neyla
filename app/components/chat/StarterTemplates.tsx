@@ -11,25 +11,55 @@ const FrameworkLink: React.FC<FrameworkLinkProps> = ({ template }) => (
     href={`/git?url=https://github.com/${template.githubRepo}.git`}
     data-state="closed"
     data-discover="true"
-    className="items-center justify-center"
+    className="flex flex-col items-center justify-center gap-1 group"
+    title={template.label}
   >
     <div
-      className={`inline-block ${template.icon} w-8 h-8 text-4xl transition-theme hover:text-purple-500 dark:text-white dark:opacity-50 dark:hover:opacity-100 dark:hover:text-purple-400 transition-all grayscale hover:grayscale-0 transition`}
-      title={template.label}
+      className={`inline-block ${template.icon} w-7 h-7 transition-all grayscale group-hover:grayscale-0 group-hover:scale-110 opacity-60 group-hover:opacity-100`}
+      style={{ transition: 'all 0.2s ease' }}
     />
+    <span className="text-[9px] text-bolt-elements-textTertiary group-hover:text-bolt-elements-textSecondary transition-colors">
+      {template.label}
+    </span>
   </a>
 );
 
 const StarterTemplates: React.FC = () => {
   return (
-    <div className="flex flex-col items-center gap-4">
-      <span className="text-sm text-gray-500">or start a blank app with your favorite stack</span>
-      <div className="flex justify-center">
-        <div className="flex flex-wrap justify-center items-center gap-4 max-w-sm">
-          {STARTER_TEMPLATES.map((template) => (
-            <FrameworkLink key={template.name} template={template} />
+    <div className="flex flex-col items-center gap-3 pb-6">
+      <div className="flex items-center gap-3 text-xs text-bolt-elements-textTertiary">
+        <div className="h-px w-12 bg-bolt-elements-borderColor" />
+        <span>or start with a template</span>
+        <div className="h-px w-12 bg-bolt-elements-borderColor" />
+      </div>
+      <div className="flex flex-wrap justify-center items-center gap-5 max-w-sm">
+        {STARTER_TEMPLATES.map((template) => (
+          <FrameworkLink key={template.name} template={template} />
+        ))}
+      </div>
+
+      {/* Social proof / trust signal */}
+      <div className="mt-4 flex flex-col items-center gap-1.5">
+        <div className="flex -space-x-2">
+          {['🧑‍💻', '👩‍💻', '👨‍💻', '🧕', '👦'].map((emoji, i) => (
+            <div
+              key={i}
+              className="w-7 h-7 rounded-full border-2 border-white dark:border-gray-900 bg-gradient-to-br flex items-center justify-center text-sm"
+              style={{
+                background: `hsl(${i * 40 + 20}, 70%, 85%)`,
+                zIndex: 5 - i,
+              }}
+            >
+              {emoji}
+            </div>
           ))}
         </div>
+        <p className="text-xs text-bolt-elements-textTertiary text-center">
+          <span className="font-semibold text-bolt-elements-textSecondary">1,000+</span> developers building with Skech today
+        </p>
+        <p className="text-[10px] text-bolt-elements-textTertiary">
+          Tamil · Hindi · Telugu support coming soon 🇮🇳
+        </p>
       </div>
     </div>
   );

@@ -351,12 +351,30 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
         <div className="flex flex-col lg:flex-row overflow-y-auto w-full h-full">
           <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
             {!chatStarted && (
-              <div id="intro" className="mt-[16vh] max-w-2xl mx-auto text-center px-4 lg:px-0">
-                <h1 className="text-3xl lg:text-6xl font-bold text-bolt-elements-textPrimary mb-4 animate-fade-in">
-                  Where ideas begin
+              <div id="intro" className="mt-[10vh] max-w-3xl mx-auto text-center px-4 lg:px-0">
+                <div className="flex items-center justify-center gap-2 mb-6 animate-fade-in">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border"
+                    style={{ borderColor: 'rgba(255, 107, 43, 0.3)', background: 'rgba(255, 107, 43, 0.08)', color: '#FF6B2B' }}>
+                    <span className="i-ph:sparkle-fill text-sm" />
+                    AI-powered vibe coding for India
+                  </span>
+                </div>
+                <h1 className="text-4xl lg:text-6xl font-black tracking-tight mb-5 animate-fade-in leading-[1.1]">
+                  <span className="text-bolt-elements-textPrimary">Build anything</span>
+                  <br />
+                  <span
+                    style={{
+                      background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 55%, #784BA0 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    }}
+                  >
+                    just describe it
+                  </span>
                 </h1>
-                <p className="text-md lg:text-xl mb-8 text-bolt-elements-textSecondary animate-fade-in animation-delay-200">
-                  Bring ideas to life in seconds or get help on existing projects.
+                <p className="text-base lg:text-lg mb-8 text-bolt-elements-textSecondary animate-fade-in animation-delay-200 max-w-xl mx-auto leading-relaxed">
+                  Create stunning websites, apps, and prototypes in seconds. No coding skills needed — just your ideas.
                 </p>
               </div>
             )}
