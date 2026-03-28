@@ -132,20 +132,20 @@ export function selectModelForPrompt(prompt: string, providerList: ProviderInfo[
   const openRouter = findProvider('OpenRouter');
 
   if (tier === 'powerful') {
-    if (anthropic) {
-      return { model: 'claude-3-5-sonnet-20241022', provider: anthropic };
-    }
-
     if (openai) {
       return { model: 'gpt-4o', provider: openai };
+    }
+
+    if (groq) {
+      return { model: 'llama-3.3-70b-versatile', provider: groq };
     }
 
     if (openRouter) {
       return { model: 'anthropic/claude-3.5-sonnet', provider: openRouter };
     }
 
-    if (groq) {
-      return { model: 'llama-3.3-70b-versatile', provider: groq };
+    if (anthropic) {
+      return { model: 'claude-3-5-sonnet-20241022', provider: anthropic };
     }
   }
 
