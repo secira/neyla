@@ -26,7 +26,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "GIT_CONFIG_NOSYSTEM=1 HOME=/tmp node pre-start.cjs && GIT_CONFIG_NOSYSTEM=1 HOME=/tmp CHOKIDAR_USEPOLLING=true CHOKIDAR_INTERVAL=3000 node --require ./polyfill-file.cjs /home/runner/workspace/node_modules/.pnpm/@remix-run+dev@2.16.8_@remix-run+react@2.16.8_react-dom@18.3.1_react@18.3.1__react@18.3.1_typ_uozynh2jdinnz6binv6akofmd4/node_modules/@remix-run/dev/dist/cli.js vite:dev"
+args = "GIT_CONFIG_NOSYSTEM=1 HOME=/tmp node pre-start.cjs && GIT_CONFIG_NOSYSTEM=1 HOME=/tmp CHOKIDAR_USEPOLLING=true CHOKIDAR_INTERVAL=3000 node --require ./polyfill-file.cjs /home/runner/workspace/node_modules/.pnpm/@remix-run+dev@2.17.4_@remix-run+react@2.17.4_react-dom@18.3.1_react@18.3.1__react@18.3.1_typ_4jd4lxzjjmj4drz3q7ktxlvcba/node_modules/@remix-run/dev/dist/cli.js vite:dev"
 waitForPort = 5000
 
 [[ports]]
