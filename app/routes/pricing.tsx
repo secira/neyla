@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
 import { authUserAtom, fetchCurrentUser } from '~/lib/stores/auth';
 import { Footer } from '~/components/layout/Footer';
+import { Header } from '~/components/header/Header';
 
 declare global {
   interface Window {
@@ -181,6 +182,7 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
+      <Header />
       {toast && (
         <div
           className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white transition-all ${

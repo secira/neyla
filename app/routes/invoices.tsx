@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
 import { authUserAtom, fetchCurrentUser } from '~/lib/stores/auth';
+import { Header } from '~/components/header/Header';
+import { Footer } from '~/components/layout/Footer';
 
 interface Invoice {
   id: string;
@@ -53,7 +55,9 @@ export default function InvoicesPage() {
 
   if (!user && !loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
+        <Header />
+        <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <div className="i-ph:lock-simple-fill text-5xl text-gray-300 dark:text-gray-700 mb-4 mx-auto" />
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Sign in to view invoices</h2>
@@ -66,13 +70,15 @@ export default function InvoicesPage() {
             Sign in
           </a>
         </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
-      <div className="max-w-4xl mx-auto px-4 py-12">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
+      <Header />
+      <div className="max-w-4xl mx-auto px-4 py-12 flex-1">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-black text-gray-900 dark:text-white">Invoices</h1>
@@ -217,6 +223,7 @@ export default function InvoicesPage() {
           </p>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
