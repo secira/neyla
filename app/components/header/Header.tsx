@@ -60,9 +60,9 @@ export function Header() {
       {!chat.started && (
         <div className="flex-1 flex items-center justify-end gap-3">
           <nav className="hidden sm:flex items-center gap-6 text-sm font-medium text-bolt-elements-textSecondary">
-            <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Features</a>
-            <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Examples</a>
-            <a href="#" className="hover:text-bolt-elements-textPrimary transition-colors">Community</a>
+            <a href="/features" className="hover:text-bolt-elements-textPrimary transition-colors">Features</a>
+            <a href="/examples" className="hover:text-bolt-elements-textPrimary transition-colors">Examples</a>
+            <a href="/community" className="hover:text-bolt-elements-textPrimary transition-colors">Community</a>
             <a
               href="/pricing"
               className="flex items-center gap-1 hover:text-bolt-elements-textPrimary transition-colors font-semibold"

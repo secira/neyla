@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
 import { authUserAtom, fetchCurrentUser } from '~/lib/stores/auth';
+import { Footer } from '~/components/layout/Footer';
 
 declare global {
   interface Window {
@@ -179,7 +180,7 @@ export default function PricingPage() {
   const currentPlan = subscription?.plan;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950">
       {toast && (
         <div
           className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white transition-all ${
@@ -316,6 +317,7 @@ export default function PricingPage() {
           ))}
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
