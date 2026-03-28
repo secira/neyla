@@ -22,6 +22,7 @@ import { getTemplates, selectStarterTemplate } from '~/utils/selectStarterTempla
 import { logStore } from '~/lib/stores/logs';
 import { streamingState } from '~/lib/stores/streaming';
 import { filesToArtifacts } from '~/utils/fileUtils';
+import { selectModelForPrompt } from '~/utils/smartModelSelector';
 import { supabaseConnection } from '~/lib/stores/supabase';
 import { defaultDesignScheme, type DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/Inspector';
@@ -184,9 +185,12 @@ export const ChatImpl = memo(
       if (prompt) {
         setSearchParams({});
         runAnimation();
+        const _urlChoice = selectModelForPrompt(prompt, activeProviders);
+        const _urlModel = _urlChoice?.model ?? model;
+        const _urlProvider = _urlChoice?.provider ?? provider;
         append({
           role: 'user',
-          content: `[Model: ${model}]\n\n[Provider: ${provider.name}]\n\n${prompt}`,
+          content: `[Model: ${_urlModel}]\n\n[Provider: ${_urlProvider.name}]\n\n${prompt}`,
         });
       }
     }, [model, provider, searchParams]);
@@ -398,6 +402,10 @@ export const ChatImpl = memo(
         return;
       }
 
+      const _smartChoice = selectModelForPrompt(messageContent, activeProviders);
+      const _activeModel = _smartChoice?.model ?? model;
+      const _activeProvider = _smartChoice?.provider ?? provider;
+
       let finalMessageContent = messageContent;
 
       if (selectedElement) {
@@ -432,7 +440,7 @@ export const ChatImpl = memo(
 
             if (temResp) {
               const { assistantMessage, userMessage } = temResp;
-              const userMessageText = `[Model: ${model}]\n\n[Provider: ${provider.name}]\n\n${finalMessageContent}`;
+              const userMessageText = `[Model: ${_activeModel}]\n\n[Provider: ${_activeProvider.name}]\n\n${finalMessageContent}`;
 
               setMessages([
                 {
@@ -449,7 +457,7 @@ export const ChatImpl = memo(
                 {
                   id: `3-${new Date().getTime()}`,
                   role: 'user',
-                  content: `[Model: ${model}]\n\n[Provider: ${provider.name}]\n\n${userMessage}`,
+                  content: `[Model: ${_activeModel}]\n\n[Provider: ${_activeProvider.name}]\n\n${userMessage}`,
                   annotations: ['hidden'],
                 },
               ]);
@@ -477,7 +485,7 @@ export const ChatImpl = memo(
         }
 
         // If autoSelectTemplate is disabled or template selection failed, proceed with normal message
-        const userMessageText = `[Model: ${model}]\n\n[Provider: ${provider.name}]\n\n${finalMessageContent}`;
+        const userMessageText = `[Model: ${_activeModel}]\n\n[Provider: ${_activeProvider.name}]\n\n${finalMessageContent}`;
         const attachments = uploadedFiles.length > 0 ? await filesToAttachments(uploadedFiles) : undefined;
 
         setMessages([
@@ -514,7 +522,7 @@ export const ChatImpl = memo(
 
       if (modifiedFiles !== undefined) {
         const userUpdateArtifact = filesToArtifacts(modifiedFiles, `${Date.now()}`);
-        const messageText = `[Model: ${model}]\n\n[Provider: ${provider.name}]\n\n${userUpdateArtifact}${finalMessageContent}`;
+        const messageText = `[Model: ${_activeModel}]\n\n[Provider: ${_activeProvider.name}]\n\n${userUpdateArtifact}${finalMessageContent}`;
 
         const attachmentOptions =
           uploadedFiles.length > 0 ? { experimental_attachments: await filesToAttachments(uploadedFiles) } : undefined;
@@ -530,7 +538,7 @@ export const ChatImpl = memo(
 
         workbenchStore.resetAllFileModifications();
       } else {
-        const messageText = `[Model: ${model}]\n\n[Provider: ${provider.name}]\n\n${finalMessageContent}`;
+        const messageText = `[Model: ${_activeModel}]\n\n[Provider: ${_activeProvider.name}]\n\n${finalMessageContent}`;
 
         const attachmentOptions =
           uploadedFiles.length > 0 ? { experimental_attachments: await filesToAttachments(uploadedFiles) } : undefined;
