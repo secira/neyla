@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.js';
 import workspaceRoutes from './routes/workspaces.js';
 import paymentRoutes from './routes/payments.js';
+import sandboxRoutes from './routes/sandbox.js';
 
 const app = express();
 const PORT = process.env.AUTH_SERVER_PORT || 3001;
@@ -15,12 +16,13 @@ app.use(
   }),
 );
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 app.use(cookieParser());
 
 app.use('/auth', authRoutes);
 app.use('/workspaces', workspaceRoutes);
 app.use('/payments', paymentRoutes);
+app.use('/sandbox', sandboxRoutes);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 

@@ -1,6 +1,11 @@
 /**
- * This client-only module that contains everything related to auth and is used
- * to avoid importing `@webcontainer/api` in the server bundle.
+ * Auth stub — WebContainer auth is no longer used (replaced by E2B).
+ * Kept for compatibility with existing imports.
  */
 
-export { auth, type AuthAPI } from '@webcontainer/api';
+export const auth = {
+  login: async () => {},
+  logout: async () => {},
+};
+
+export type AuthAPI = typeof auth;

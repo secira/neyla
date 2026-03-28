@@ -1,7 +1,6 @@
-import type { WebContainer } from '@webcontainer/api';
 import { atom } from 'nanostores';
+import { getPreviewUrl } from '~/lib/e2b/client';
 
-// Extend Window interface to include our custom property
 declare global {
   interface Window {
     _tabId?: string;
@@ -14,28 +13,26 @@ export interface PreviewInfo {
   baseUrl: string;
 }
 
-// Create a broadcast channel for preview updates
 const PREVIEW_CHANNEL = 'preview-updates';
+const COMMON_PORTS = [3000, 5173, 5174, 8080, 4173, 3001, 4000];
+const POLL_INTERVAL = 3000;
 
 export class PreviewsStore {
   #availablePreviews = new Map<number, PreviewInfo>();
-  #webcontainer: Promise<WebContainer>;
   #broadcastChannel?: BroadcastChannel;
   #lastUpdate = new Map<string, number>();
-  #watchedFiles = new Set<string>();
   #refreshTimeouts = new Map<string, NodeJS.Timeout>();
   #REFRESH_DELAY = 300;
   #storageChannel?: BroadcastChannel;
+  #pollingInterval: ReturnType<typeof setInterval> | null = null;
 
   previews = atom<PreviewInfo[]>([]);
 
-  constructor(webcontainerPromise: Promise<WebContainer>) {
-    this.#webcontainer = webcontainerPromise;
+  constructor(_webcontainerPromise?: Promise<any>) {
     this.#broadcastChannel = this.#maybeCreateChannel(PREVIEW_CHANNEL);
     this.#storageChannel = this.#maybeCreateChannel('storage-sync-channel');
 
     if (this.#broadcastChannel) {
-      // Listen for preview updates from other tabs
       this.#broadcastChannel.onmessage = (event) => {
         const { type, previewId } = event.data;
 
@@ -52,7 +49,6 @@ export class PreviewsStore {
     }
 
     if (this.#storageChannel) {
-      // Listen for storage sync messages
       this.#storageChannel.onmessage = (event) => {
         const { storage, source } = event.data;
 
@@ -62,7 +58,6 @@ export class PreviewsStore {
       };
     }
 
-    // Override localStorage setItem to catch all changes
     if (typeof window !== 'undefined') {
       const originalSetItem = localStorage.setItem;
 
@@ -72,7 +67,7 @@ export class PreviewsStore {
       };
     }
 
-    this.#init();
+    this.#startPolling();
   }
 
   #maybeCreateChannel(name: string): BroadcastChannel | undefined {
@@ -98,7 +93,39 @@ export class PreviewsStore {
     }
   }
 
-  // Generate a unique ID for this tab
+  #startPolling() {
+    if (this.#pollingInterval || typeof window === 'undefined') {
+      return;
+    }
+
+    this.#pollingInterval = setInterval(async () => {
+      for (const port of COMMON_PORTS) {
+        try {
+          const url = await getPreviewUrl(port);
+
+          if (url) {
+            const existing = this.#availablePreviews.get(port);
+
+            if (!existing) {
+              const previewInfo: PreviewInfo = { port, ready: true, baseUrl: url };
+              this.#availablePreviews.set(port, previewInfo);
+              this.previews.set([...this.#availablePreviews.values()]);
+              this._broadcastStorageSync();
+            }
+          } else if (this.#availablePreviews.has(port)) {
+            this.#availablePreviews.delete(port);
+            this.previews.set([...this.#availablePreviews.values()]);
+          }
+        } catch {
+          if (this.#availablePreviews.has(port)) {
+            this.#availablePreviews.delete(port);
+            this.previews.set([...this.#availablePreviews.values()]);
+          }
+        }
+      }
+    }, POLL_INTERVAL);
+  }
+
   private _getTabId(): string {
     if (typeof window !== 'undefined') {
       if (!window._tabId) {
@@ -111,7 +138,6 @@ export class PreviewsStore {
     return '';
   }
 
-  // Sync storage data between tabs
   private _syncStorage(storage: Record<string, string>) {
     if (typeof window !== 'undefined') {
       Object.entries(storage).forEach(([key, value]) => {
@@ -123,7 +149,6 @@ export class PreviewsStore {
         }
       });
 
-      // Force a refresh after syncing storage
       const previews = this.previews.get();
       previews.forEach((preview) => {
         const previewId = this.getPreviewId(preview.baseUrl);
@@ -133,7 +158,6 @@ export class PreviewsStore {
         }
       });
 
-      // Reload the page content
       if (typeof window !== 'undefined' && window.location) {
         const iframe = document.querySelector('iframe');
 
@@ -144,7 +168,6 @@ export class PreviewsStore {
     }
   }
 
-  // Broadcast storage state to other tabs
   private _broadcastStorageSync() {
     if (typeof window !== 'undefined') {
       const storage: Record<string, string> = {};
@@ -166,55 +189,15 @@ export class PreviewsStore {
     }
   }
 
-  async #init() {
-    const webcontainer = await this.#webcontainer;
-
-    // Listen for server ready events
-    webcontainer.on('server-ready', (port, url) => {
-      console.log('[Preview] Server ready on port:', port, url);
-      this.broadcastUpdate(url);
-
-      // Initial storage sync when preview is ready
-      this._broadcastStorageSync();
-    });
-
-    // Listen for port events
-    webcontainer.on('port', (port, type, url) => {
-      let previewInfo = this.#availablePreviews.get(port);
-
-      if (type === 'close' && previewInfo) {
-        this.#availablePreviews.delete(port);
-        this.previews.set(this.previews.get().filter((preview) => preview.port !== port));
-
-        return;
-      }
-
-      const previews = this.previews.get();
-
-      if (!previewInfo) {
-        previewInfo = { port, ready: type === 'open', baseUrl: url };
-        this.#availablePreviews.set(port, previewInfo);
-        previews.push(previewInfo);
-      }
-
-      previewInfo.ready = type === 'open';
-      previewInfo.baseUrl = url;
-
-      this.previews.set([...previews]);
-
-      if (type === 'open') {
-        this.broadcastUpdate(url);
-      }
-    });
-  }
-
-  // Helper to extract preview ID from URL
   getPreviewId(url: string): string | null {
-    const match = url.match(/^https?:\/\/([^.]+)\.local-credentialless\.webcontainer-api\.io/);
-    return match ? match[1] : null;
+    try {
+      const u = new URL(url);
+      return u.hostname.split('.')[0] || null;
+    } catch {
+      return null;
+    }
   }
 
-  // Broadcast state change to all tabs
   broadcastStateChange(previewId: string) {
     const timestamp = Date.now();
     this.#lastUpdate.set(previewId, timestamp);
@@ -226,7 +209,6 @@ export class PreviewsStore {
     });
   }
 
-  // Broadcast file change to all tabs
   broadcastFileChange(previewId: string) {
     const timestamp = Date.now();
     this.#lastUpdate.set(previewId, timestamp);
@@ -238,7 +220,6 @@ export class PreviewsStore {
     });
   }
 
-  // Broadcast update to all tabs
   broadcastUpdate(url: string) {
     const previewId = this.getPreviewId(url);
 
@@ -254,16 +235,13 @@ export class PreviewsStore {
     }
   }
 
-  // Method to refresh a specific preview
   refreshPreview(previewId: string) {
-    // Clear any pending refresh for this preview
     const existingTimeout = this.#refreshTimeouts.get(previewId);
 
     if (existingTimeout) {
       clearTimeout(existingTimeout);
     }
 
-    // Set a new timeout for this refresh
     const timeout = setTimeout(() => {
       const previews = this.previews.get();
       const preview = previews.find((p) => this.getPreviewId(p.baseUrl) === previewId);
@@ -297,16 +275,11 @@ export class PreviewsStore {
   }
 }
 
-// Create a singleton instance
 let previewsStore: PreviewsStore | null = null;
 
 export function usePreviewStore() {
   if (!previewsStore) {
-    /*
-     * Initialize with a Promise that resolves to WebContainer
-     * This should match how you're initializing WebContainer elsewhere
-     */
-    previewsStore = new PreviewsStore(Promise.resolve({} as WebContainer));
+    previewsStore = new PreviewsStore();
   }
 
   return previewsStore;

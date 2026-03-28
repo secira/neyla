@@ -1,9 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { TextSearchOptions, TextSearchOnProgressCallback, WebContainer } from '@webcontainer/api';
 import { workbenchStore } from '~/lib/stores/workbench';
-import { webcontainer } from '~/lib/webcontainer';
-import { WORK_DIR } from '~/utils/constants';
 import { debounce } from '~/utils/debounce';
+import { useStore } from '@nanostores/react';
+import { WORK_DIR } from '~/utils/constants';
 
 interface DisplayMatch {
   path: string;
@@ -13,64 +12,56 @@ interface DisplayMatch {
   matchCharEnd: number;
 }
 
-async function performTextSearch(
-  instance: WebContainer,
+function searchFilesInStore(
+  files: Record<string, any>,
   query: string,
-  options: Omit<TextSearchOptions, 'folders'>,
-  onProgress: (results: DisplayMatch[]) => void,
-): Promise<void> {
-  if (!instance || typeof instance.internal?.textSearch !== 'function') {
-    console.error('WebContainer instance not available or internal searchText method is missing/not a function.');
+  caseSensitive: boolean,
+): DisplayMatch[] {
+  const results: DisplayMatch[] = [];
+  const searchQuery = caseSensitive ? query : query.toLowerCase();
+  const EXCLUDED = ['/node_modules/', '/.git/', '/dist/', '/build/', '.lock', 'package-lock.json'];
 
-    return;
-  }
-
-  const searchOptions: TextSearchOptions = {
-    ...options,
-    folders: [WORK_DIR],
-  };
-
-  const progressCallback: TextSearchOnProgressCallback = (filePath: any, apiMatches: any[]) => {
-    const displayMatches: DisplayMatch[] = [];
-
-    apiMatches.forEach((apiMatch: { preview: { text: string; matches: string | any[] }; ranges: any[] }) => {
-      const previewLines = apiMatch.preview.text.split('\n');
-
-      apiMatch.ranges.forEach((range: { startLineNumber: number; startColumn: any; endColumn: any }) => {
-        let previewLineText = '(Preview line not found)';
-        let lineIndexInPreview = -1;
-
-        if (apiMatch.preview.matches.length > 0) {
-          const previewStartLine = apiMatch.preview.matches[0].startLineNumber;
-          lineIndexInPreview = range.startLineNumber - previewStartLine;
-        }
-
-        if (lineIndexInPreview >= 0 && lineIndexInPreview < previewLines.length) {
-          previewLineText = previewLines[lineIndexInPreview];
-        } else {
-          previewLineText = previewLines[0] ?? '(Preview unavailable)';
-        }
-
-        displayMatches.push({
-          path: filePath,
-          lineNumber: range.startLineNumber,
-          previewText: previewLineText,
-          matchCharStart: range.startColumn,
-          matchCharEnd: range.endColumn,
-        });
-      });
-    });
-
-    if (displayMatches.length > 0) {
-      onProgress(displayMatches);
+  for (const [filePath, dirent] of Object.entries(files)) {
+    if (!dirent || dirent.type !== 'file' || dirent.isBinary) {
+      continue;
     }
-  };
 
-  try {
-    await instance.internal.textSearch(query, searchOptions, progressCallback);
-  } catch (error) {
-    console.error('Error during internal text search:', error);
+    if (EXCLUDED.some((ex) => filePath.includes(ex))) {
+      continue;
+    }
+
+    const content: string = dirent.content || '';
+
+    if (!content) {
+      continue;
+    }
+
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const searchLine = caseSensitive ? line : line.toLowerCase();
+      let idx = searchLine.indexOf(searchQuery);
+
+      while (idx !== -1) {
+        results.push({
+          path: filePath,
+          lineNumber: i + 1,
+          previewText: line,
+          matchCharStart: idx,
+          matchCharEnd: idx + query.length,
+        });
+
+        if (results.length >= 500) {
+          return results;
+        }
+
+        idx = searchLine.indexOf(searchQuery, idx + 1);
+      }
+    }
   }
+
+  return results;
 }
 
 function groupResultsByFile(results: DisplayMatch[]): Record<string, DisplayMatch[]> {
@@ -95,6 +86,7 @@ export function Search() {
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
   const [hasSearched, setHasSearched] = useState(false);
 
+  const files = useStore(workbenchStore.files);
   const groupedResults = useMemo(() => groupResultsByFile(searchResults), [searchResults]);
 
   useEffect(() => {
@@ -107,57 +99,33 @@ export function Search() {
     }
   }, [groupedResults, searchResults]);
 
-  const handleSearch = useCallback(async (query: string) => {
-    if (!query.trim()) {
+  const handleSearch = useCallback(
+    (query: string) => {
+      if (!query.trim()) {
+        setSearchResults([]);
+        setIsSearching(false);
+        setExpandedFiles({});
+        setHasSearched(false);
+
+        return;
+      }
+
+      setIsSearching(true);
       setSearchResults([]);
-      setIsSearching(false);
       setExpandedFiles({});
-      setHasSearched(false);
+      setHasSearched(true);
 
-      return;
-    }
-
-    setIsSearching(true);
-    setSearchResults([]);
-    setExpandedFiles({});
-    setHasSearched(true);
-
-    const minLoaderTime = 300; // ms
-    const start = Date.now();
-
-    try {
-      const instance = await webcontainer;
-      const options: Omit<TextSearchOptions, 'folders'> = {
-        homeDir: WORK_DIR, // Adjust this path as needed
-        includes: ['**/*.*'],
-        excludes: ['**/node_modules/**', '**/package-lock.json', '**/.git/**', '**/dist/**', '**/*.lock'],
-        gitignore: true,
-        requireGit: false,
-        globalIgnoreFiles: true,
-        ignoreSymlinks: false,
-        resultLimit: 500,
-        isRegex: false,
-        caseSensitive: false,
-        isWordMatch: false,
-      };
-
-      const progressHandler = (batchResults: DisplayMatch[]) => {
-        setSearchResults((prevResults) => [...prevResults, ...batchResults]);
-      };
-
-      await performTextSearch(instance, query, options, progressHandler);
-    } catch (error) {
-      console.error('Failed to initiate search:', error);
-    } finally {
-      const elapsed = Date.now() - start;
-
-      if (elapsed < minLoaderTime) {
-        setTimeout(() => setIsSearching(false), minLoaderTime - elapsed);
-      } else {
+      try {
+        const results = searchFilesInStore(files, query, false);
+        setSearchResults(results);
+      } catch (error) {
+        console.error('Search failed:', error);
+      } finally {
         setIsSearching(false);
       }
-    }
-  }, []);
+    },
+    [files],
+  );
 
   const debouncedSearch = useCallback(debounce(handleSearch, 300), [handleSearch]);
 
@@ -168,18 +136,12 @@ export function Search() {
   const handleResultClick = (filePath: string, line?: number) => {
     workbenchStore.setSelectedFile(filePath);
 
-    /*
-     * Adjust line number to be 0-based if it's defined
-     * The search results use 1-based line numbers, but CodeMirrorEditor expects 0-based
-     */
     const adjustedLine = typeof line === 'number' ? Math.max(0, line - 1) : undefined;
-
     workbenchStore.setCurrentDocumentScrollPosition({ line: adjustedLine, column: 0 });
   };
 
   return (
     <div className="flex flex-col h-full bg-bolt-elements-background-depth-2">
-      {/* Search Bar */}
       <div className="flex items-center py-3 px-3">
         <div className="relative flex-1">
           <input
@@ -192,7 +154,6 @@ export function Search() {
         </div>
       </div>
 
-      {/* Results */}
       <div className="flex-1 overflow-auto py-2">
         {isSearching && (
           <div className="flex items-center justify-center h-32 text-bolt-elements-textTertiary">
@@ -210,7 +171,7 @@ export function Search() {
                 onClick={() => setExpandedFiles((prev) => ({ ...prev, [file]: !prev[file] }))}
               >
                 <span
-                  className=" i-ph:caret-down-thin w-3 h-3 text-bolt-elements-textSecondary transition-transform"
+                  className="i-ph:caret-down-thin w-3 h-3 text-bolt-elements-textSecondary transition-transform"
                   style={{ transform: expandedFiles[file] ? 'rotate(180deg)' : undefined }}
                 />
                 <span className="font-normal text-sm">{file.split('/').pop()}</span>
@@ -219,7 +180,7 @@ export function Search() {
                 </span>
               </button>
               {expandedFiles[file] && (
-                <div className="">
+                <div>
                   {groupedResults[file].map((match, idx) => {
                     const contextChars = 7;
                     const isStart = match.matchCharStart <= contextChars;

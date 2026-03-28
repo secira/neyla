@@ -1,23 +1,23 @@
-import type { WebContainer, WebContainerProcess } from '@webcontainer/api';
 import { atom, type WritableAtom } from 'nanostores';
 import type { ITerminal } from '~/types/terminal';
 import { newBoltShellProcess, newShellProcess } from '~/utils/shell';
 import { coloredText } from '~/utils/terminal';
 
 export class TerminalStore {
-  #webcontainer: Promise<WebContainer>;
-  #terminals: Array<{ terminal: ITerminal; process: WebContainerProcess }> = [];
+  #webcontainer: Promise<any>;
+  #terminals: Array<{ terminal: ITerminal; process: any }> = [];
   #boltTerminal = newBoltShellProcess();
 
   showTerminal: WritableAtom<boolean> = import.meta.hot?.data.showTerminal ?? atom(true);
 
-  constructor(webcontainerPromise: Promise<WebContainer>) {
+  constructor(webcontainerPromise: Promise<any>) {
     this.#webcontainer = webcontainerPromise;
 
     if (import.meta.hot) {
       import.meta.hot.data.showTerminal = this.showTerminal;
     }
   }
+
   get boltTerminal() {
     return this.#boltTerminal;
   }
@@ -25,6 +25,7 @@ export class TerminalStore {
   toggleTerminal(value?: boolean) {
     this.showTerminal.set(value !== undefined ? value : !this.showTerminal.get());
   }
+
   async attachBoltTerminal(terminal: ITerminal) {
     try {
       const wc = await this.#webcontainer;
@@ -47,7 +48,7 @@ export class TerminalStore {
 
   onTerminalResize(cols: number, rows: number) {
     for (const { process } of this.#terminals) {
-      process.resize({ cols, rows });
+      process?.resize?.({ cols, rows });
     }
   }
 
@@ -58,10 +59,11 @@ export class TerminalStore {
       const { process } = this.#terminals[terminalIndex];
 
       try {
-        process.kill();
+        process?.kill?.();
       } catch (error) {
         console.warn('Failed to kill terminal process:', error);
       }
+
       this.#terminals.splice(terminalIndex, 1);
     }
   }

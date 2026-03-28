@@ -1,4 +1,8 @@
-import type { PathWatcherEvent, WebContainer } from '@webcontainer/api';
+type PathWatcherEvent = {
+  type: 'add_file' | 'add_dir' | 'change' | 'remove_file' | 'remove_dir' | 'update_directory';
+  path: string;
+  buffer?: Uint8Array;
+};
 import { getEncoding } from 'istextorbinary';
 import { map, type MapStore } from 'nanostores';
 import { Buffer } from 'node:buffer';
@@ -45,7 +49,7 @@ type Dirent = File | Folder;
 export type FileMap = Record<string, Dirent | undefined>;
 
 export class FilesStore {
-  #webcontainer: Promise<WebContainer>;
+  #webcontainer: Promise<any>;
 
   /**
    * Tracks the number of files without folders.
@@ -73,7 +77,7 @@ export class FilesStore {
     return this.#size;
   }
 
-  constructor(webcontainerPromise: Promise<WebContainer>) {
+  constructor(webcontainerPromise: Promise<any>) {
     this.#webcontainer = webcontainerPromise;
 
     // Load deleted paths from localStorage if available

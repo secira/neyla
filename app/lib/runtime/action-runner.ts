@@ -1,4 +1,4 @@
-import type { WebContainer } from '@webcontainer/api';
+type WebContainerLike = { workdir: string; fs: any; spawn: any; on: any };
 import { path as nodePath } from '~/utils/path';
 import { atom, map, type MapStore } from 'nanostores';
 import type { ActionAlert, BoltAction, DeployAlert, FileHistory, SupabaseAction, SupabaseAlert } from '~/types/actions';
@@ -64,7 +64,7 @@ class ActionCommandError extends Error {
 }
 
 export class ActionRunner {
-  #webcontainer: Promise<WebContainer>;
+  #webcontainer: Promise<WebContainerLike>;
   #currentExecutionPromise: Promise<void> = Promise.resolve();
   #shellTerminal: () => BoltShell;
   runnerId = atom<string>(`${Date.now()}`);
@@ -75,7 +75,7 @@ export class ActionRunner {
   buildOutput?: { path: string; exitCode: number; output: string };
 
   constructor(
-    webcontainerPromise: Promise<WebContainer>,
+    webcontainerPromise: Promise<WebContainerLike>,
     getShellTerminal: () => BoltShell,
     onAlert?: (alert: ActionAlert) => void,
     onSupabaseAlert?: (alert: SupabaseAlert) => void,
@@ -255,7 +255,7 @@ export class ActionRunner {
     const shell = this.#shellTerminal();
     await shell.ready();
 
-    if (!shell || !shell.terminal || !shell.process) {
+    if (!shell || !shell.terminal) {
       unreachable('Shell terminal not found');
     }
 
@@ -291,7 +291,7 @@ export class ActionRunner {
     const shell = this.#shellTerminal();
     await shell.ready();
 
-    if (!shell || !shell.terminal || !shell.process) {
+    if (!shell || !shell.terminal) {
       unreachable('Shell terminal not found');
     }
 
@@ -391,35 +391,19 @@ export class ActionRunner {
 
     const webcontainer = await this.#webcontainer;
 
-    // Create a new terminal specifically for the build
-    const buildProcess = await webcontainer.spawn('npm', ['run', 'build']);
+    const shell = this.#shellTerminal();
+    await shell.ready();
 
-    let output = '';
-    const outputPromise = buildProcess.output.pipeTo(
-      new WritableStream({
-        write(data) {
-          output += data;
-        },
-      }),
-    );
-
-    const exitCode = await buildProcess.exit;
-    await outputPromise.catch(() => {
-      // Ignore output piping errors; we still have whatever was captured
-    });
+    const shellResult = await shell.executeCommand(this.runnerId.get(), action.content || 'npm run build');
+    const exitCode = shellResult?.exitCode ?? 1;
+    const output = shellResult?.output ?? '';
 
     let buildDir = '';
 
     if (exitCode !== 0) {
-      const buildResult = {
-        path: buildDir,
-        exitCode,
-        output,
-      };
+      const failedBuildResult = { path: buildDir, exitCode, output };
+      this.buildOutput = failedBuildResult;
 
-      this.buildOutput = buildResult;
-
-      // Trigger build failed alert
       this.onDeployAlert?.({
         type: 'error',
         title: 'Build Failed',
@@ -434,7 +418,6 @@ export class ActionRunner {
       throw new ActionCommandError('Build Failed', output || 'No Output Available');
     }
 
-    // Trigger build success alert
     this.onDeployAlert?.({
       type: 'success',
       title: 'Build Completed',
@@ -448,7 +431,6 @@ export class ActionRunner {
     // Check for common build directories
     const commonBuildDirs = ['dist', 'build', 'out', 'output', '.next', 'public'];
 
-    // Try to find the first existing build directory
     for (const dir of commonBuildDirs) {
       const dirPath = nodePath.join(webcontainer.workdir, dir);
 
@@ -461,20 +443,14 @@ export class ActionRunner {
       }
     }
 
-    // If no build directory was found, use the default (dist)
     if (!buildDir) {
       buildDir = nodePath.join(webcontainer.workdir, 'dist');
     }
 
-    const buildResult = {
-      path: buildDir,
-      exitCode,
-      output,
-    };
+    const successBuildResult = { path: buildDir, exitCode, output };
+    this.buildOutput = successBuildResult;
 
-    this.buildOutput = buildResult;
-
-    return buildResult;
+    return successBuildResult;
   }
   async handleSupabaseAction(action: SupabaseAction) {
     const { operation, content, filePath } = action;

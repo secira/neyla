@@ -1,8 +1,6 @@
 import { toast } from 'react-toastify';
 import { useStore } from '@nanostores/react';
 import { workbenchStore } from '~/lib/stores/workbench';
-import { webcontainer } from '~/lib/webcontainer';
-import { path } from '~/utils/path';
 import { useState } from 'react';
 import type { ActionCallbackData } from '~/lib/runtime/message-parser';
 import { chatId } from '~/lib/persistence/useChatHistory';
@@ -82,58 +80,30 @@ export function useGitLabDeploy() {
         source: 'gitlab',
       });
 
-      // Get all project files instead of just the build directory since we're deploying to a repository
-      const container = await webcontainer;
+      const storeFiles = workbenchStore.files.get();
+      const EXCLUDED_PREFIXES = ['/node_modules/', '/.git/', '/dist/', '/build/', '/.cache/', '/.next/'];
+      const EXCLUDED_NAMES = ['.DS_Store', '.env', '.env.local'];
 
-      // Get all files recursively - we'll deploy the entire project, not just the build directory
-      async function getAllFiles(dirPath: string, basePath: string = ''): Promise<Record<string, string>> {
-        const files: Record<string, string> = {};
-        const entries = await container.fs.readdir(dirPath, { withFileTypes: true });
+      const fileContents: Record<string, string> = {};
 
-        for (const entry of entries) {
-          const fullPath = path.join(dirPath, entry.name);
-
-          // Create a relative path without the leading slash for GitLab
-          const relativePath = basePath ? `${basePath}/${entry.name}` : entry.name;
-
-          // Skip node_modules, .git directories and other common excludes
-          if (
-            entry.isDirectory() &&
-            (entry.name === 'node_modules' ||
-              entry.name === '.git' ||
-              entry.name === 'dist' ||
-              entry.name === 'build' ||
-              entry.name === '.cache' ||
-              entry.name === '.next')
-          ) {
-            continue;
-          }
-
-          if (entry.isFile()) {
-            // Skip binary files, large files and other common excludes
-            if (entry.name.endsWith('.DS_Store') || entry.name.endsWith('.log') || entry.name.startsWith('.env')) {
-              continue;
-            }
-
-            try {
-              const content = await container.fs.readFile(fullPath, 'utf-8');
-
-              // Store the file with its relative path, not the full system path
-              files[relativePath] = content;
-            } catch (error) {
-              console.warn(`Could not read file ${fullPath}:`, error);
-              continue;
-            }
-          } else if (entry.isDirectory()) {
-            const subFiles = await getAllFiles(fullPath, relativePath);
-            Object.assign(files, subFiles);
-          }
+      for (const [filePath, dirent] of Object.entries(storeFiles)) {
+        if (!dirent || dirent.type !== 'file' || dirent.isBinary) {
+          continue;
         }
 
-        return files;
-      }
+        if (EXCLUDED_PREFIXES.some((ex) => filePath.includes(ex))) {
+          continue;
+        }
 
-      const fileContents = await getAllFiles('/');
+        const fileName = filePath.split('/').pop() || '';
+
+        if (EXCLUDED_NAMES.some((ex) => fileName === ex || fileName.endsWith('.log'))) {
+          continue;
+        }
+
+        const relativePath = filePath.replace(/^\//, '');
+        fileContents[relativePath] = dirent.content || '';
+      }
 
       /*
        * Show GitLab deployment dialog here - it will handle the actual deployment
