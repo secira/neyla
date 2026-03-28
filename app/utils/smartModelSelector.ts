@@ -126,42 +126,37 @@ export function selectModelForPrompt(prompt: string, providerList: ProviderInfo[
 
   const findProvider = (name: string) => providerList.find((p) => p.name === name);
 
-  const anthropic = findProvider('Anthropic');
   const groq = findProvider('Groq');
   const openRouter = findProvider('OpenRouter');
 
   if (tier === 'powerful') {
-    if (anthropic) {
-      return { model: 'claude-sonnet-4-5', provider: anthropic };
-    }
-
     if (openRouter) {
       return { model: 'anthropic/claude-3.5-sonnet', provider: openRouter };
-    }
-  }
-
-  if (tier === 'balanced') {
-    if (anthropic) {
-      return { model: 'claude-haiku-4-5', provider: anthropic };
     }
 
     if (groq) {
       return { model: 'llama-3.3-70b-versatile', provider: groq };
+    }
+  }
+
+  if (tier === 'balanced') {
+    if (groq) {
+      return { model: 'llama-3.3-70b-versatile', provider: groq };
+    }
+
+    if (openRouter) {
+      return { model: 'meta-llama/llama-3.3-70b-instruct', provider: openRouter };
     }
   }
 
   if (tier === 'fast') {
     if (groq) {
-      return { model: 'llama-3.3-70b-versatile', provider: groq };
+      return { model: 'llama-3.1-8b-instant', provider: groq };
     }
 
-    if (anthropic) {
-      return { model: 'claude-haiku-4-5', provider: anthropic };
+    if (openRouter) {
+      return { model: 'meta-llama/llama-3.1-8b-instruct', provider: openRouter };
     }
-  }
-
-  if (anthropic) {
-    return { model: 'claude-haiku-4-5', provider: anthropic };
   }
 
   if (groq) {
@@ -169,7 +164,7 @@ export function selectModelForPrompt(prompt: string, providerList: ProviderInfo[
   }
 
   if (openRouter) {
-    return { model: 'anthropic/claude-3.5-sonnet', provider: openRouter };
+    return { model: 'meta-llama/llama-3.3-70b-instruct', provider: openRouter };
   }
 
   return null;

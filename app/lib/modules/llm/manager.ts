@@ -201,7 +201,7 @@ export class LLMManager {
   }
 
   getDefaultProvider(): BaseProvider {
-    const preferred = ['Anthropic', 'OpenAI', 'OpenRouter'];
+    const preferred = ['Groq', 'OpenRouter', 'Anthropic'];
 
     for (const name of preferred) {
       const p = this._providers.get(name);
