@@ -127,10 +127,15 @@ export function selectModelForPrompt(prompt: string, providerList: ProviderInfo[
   const findProvider = (name: string) => providerList.find((p) => p.name === name);
 
   const openai = findProvider('OpenAI');
+  const anthropic = findProvider('Anthropic');
   const groq = findProvider('Groq');
   const openRouter = findProvider('OpenRouter');
 
   if (tier === 'powerful') {
+    if (anthropic) {
+      return { model: 'claude-3-5-sonnet-20241022', provider: anthropic };
+    }
+
     if (openai) {
       return { model: 'gpt-4o', provider: openai };
     }
@@ -166,6 +171,10 @@ export function selectModelForPrompt(prompt: string, providerList: ProviderInfo[
 
   if (openai) {
     return { model: 'gpt-4o-mini', provider: openai };
+  }
+
+  if (anthropic) {
+    return { model: 'claude-3-5-sonnet-20241022', provider: anthropic };
   }
 
   if (groq) {
