@@ -17,6 +17,10 @@ export default defineConfig((config) => {
       host: '0.0.0.0',
       port: 5000,
       allowedHosts: true,
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Embedder-Policy': 'credentialless',
+      },
       watch: {
         usePolling: true,
         interval: 1000,
