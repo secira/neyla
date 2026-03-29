@@ -144,28 +144,46 @@ router.post('/exec/stream', async (req, res) => {
       }
 
       // ── Phase 2: launch dev server in background (nohup) ──────────────────
-      const logFile = `${workDir}/.devserver.log`;
-      const bgCommand = `nohup sh -c ${JSON.stringify(split.server)} > ${logFile} 2>&1 &`;
+      //
+      // E2B requires the server to bind on 0.0.0.0 (not just localhost) for
+      // its port-forwarding infrastructure to expose the port externally.
+      // Pass --host 0.0.0.0 for Vite/npm/pnpm/yarn run dev commands, and
+      // set HOST=0.0.0.0 as env var for CRA/Next.js/other frameworks.
+      let serverCmd = split.server;
 
-      send({ type: 'stdout', data: `\r\n$ ${split.server} (starting in background…)\r\n` });
+      if (/\b(npm|pnpm|yarn)\s+run\s+(dev|start)\b/.test(serverCmd)) {
+        // npm run dev -- --host 0.0.0.0  (Vite accepts the --host flag)
+        serverCmd += ' -- --host 0.0.0.0';
+      }
+
+      const logFile = `${workDir}/.devserver.log`;
+      // Wrap with HOST env var for CRA-style servers and clear any stale log
+      const shellScript = `HOST=0.0.0.0 ${serverCmd}`;
+      const bgCommand = `rm -f ${logFile}; nohup sh -c ${JSON.stringify(shellScript)} > ${logFile} 2>&1 &`;
+
+      send({ type: 'stdout', data: `\r\n$ ${serverCmd} (starting in background…)\r\n` });
 
       await sandbox.commands.run(bgCommand, { cwd: workDir, timeoutMs: 10000 });
 
-      // Tail the log for a few seconds so the user sees early output
+      // Tail the log for up to 8 s so the user sees early output, sending
+      // only newly-appended content each tick.
       await new Promise((resolve) => {
         let elapsed = 0;
+        let sentBytes = 0;
+
         const poll = setInterval(async () => {
           elapsed += 500;
 
           try {
             const log = await sandbox.files.read(logFile);
 
-            if (log) {
-              send({ type: 'stdout', data: log });
+            if (log && log.length > sentBytes) {
+              send({ type: 'stdout', data: log.slice(sentBytes) });
+              sentBytes = log.length;
             }
           } catch {}
 
-          if (elapsed >= 4000) {
+          if (elapsed >= 8000) {
             clearInterval(poll);
             resolve();
           }
@@ -284,8 +302,10 @@ router.get('/preview-url', async (req, res) => {
 
       clearTimeout(timer);
 
-      // Any HTTP response (even 4xx) means a server is up
-      if (probe.status < 600) {
+      // Accept 2xx, 3xx, 4xx — any real HTTP response means a server is up.
+      // Reject 5xx (incl. 502 Bad Gateway) which E2B returns when nothing is
+      // listening on the port yet.
+      if (probe.status >= 200 && probe.status < 500) {
         return res.json({ url });
       }
     } catch {
