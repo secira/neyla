@@ -1,0 +1,34 @@
+ERROR ActionRunner Failed to write file
+
+Error: Failed to write file /home/project/../../tsconfig.node.json: Internal Server Error
+8f7d4283-06fa-4345-bb5f-2a83e3d3b5db-00-1zafz9x58bohk.pike.replit.dev/api/sandbox/files/mkdir:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+injected.js:37 ERROR ActionRunner Failed to create folder
+
+Error: Failed to mkdir /home/project/../..: Internal Server Error
+8f7d4283-06fa-4345-bb5f-2a83e3d3b5db-00-1zafz9x58bohk.pike.replit.dev/api/sandbox/files/write:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+injected.js:37 ERROR ActionRunner Failed to write file
+
+Error: Failed to write file /home/project/../../vite.config.ts: Internal Server Error
+8f7d4283-06fa-4345-bb5f-2a83e3d3b5db-00-1zafz9x58bohk.pike.replit.dev/api/sandbox/files/mkdir:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+injected.js:37 ERROR ActionRunner Failed to create folder
+
+Error: Failed to mkdir /home/project/../../src/components: Internal Server Error
+8f7d4283-06fa-4345-bb5f-2a83e3d3b5db-00-1zafz9x58bohk.pike.replit.dev/api/sandbox/files/write:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+injected.js:37 ERROR ActionRunner Failed to write file
+
+Error: Failed to write file /home/project/../../src/components/Translation.tsx: Internal Server Error
+8f7d4283-06fa-4345-bb5f-2a83e3d3b5db-00-1zafz9x58bohk.pike.replit.dev/api/sandbox/files/mkdir:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+injected.js:37 ERROR ActionRunner Failed to create folder
+
+Error: Failed to mkdir /home/project/../../src: Internal Server Error
+8f7d4283-06fa-4345-bb5f-2a83e3d3b5db-00-1zafz9x58bohk.pike.replit.dev/api/sandbox/files/write:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+injected.js:37 ERROR ActionRunner Failed to write file
+
+Error: Failed to write file /home/project/../../src/App.tsx: Internal Server Error
+injected.js:37 DEBUG ActionRunner shell Shell Response: [exit code:0]
+(index):1 Unsafe attempt to load URL https://3000-i8rxuqkjab4849i6d531m.e2b.app/ from frame with URL chrome-error://chromewebdata/. Domains, protocols and ports must match.
+Understand this error
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+injected.js:37 INFO LockedFiles Cleared locked items cache
+injected.js:37 INFO LockedFiles Cleared locked items cache

@@ -7,6 +7,43 @@ import { e2bFiles, e2bCommands, getPreviewUrl, watchFiles } from './client';
 import { WORK_DIR, WORK_DIR_NAME } from '~/utils/constants';
 import { createScopedLogger } from '~/utils/logger';
 
+/**
+ * Normalize a sandbox path so it is always absolute and cannot escape WORK_DIR.
+ * Works in browser (no Node.js path module needed).
+ *   - Relative paths  →  prepend WORK_DIR
+ *   - Root paths      →  prepend WORK_DIR  (e.g. /foo → /home/project/foo)
+ *   - Resolves ..     →  prevents directory traversal
+ */
+function resolveSandboxPath(p: string): string {
+  // Build an absolute path under WORK_DIR
+  const base = p.startsWith(WORK_DIR + '/') || p === WORK_DIR
+    ? p
+    : p.startsWith('/')
+      ? `${WORK_DIR}${p}`
+      : `${WORK_DIR}/${p}`;
+
+  // Manually resolve dots (browser has no path.resolve)
+  const parts = base.split('/').filter(Boolean);
+  const out: string[] = [];
+
+  for (const part of parts) {
+    if (part === '..') {
+      out.pop();
+    } else if (part !== '.') {
+      out.push(part);
+    }
+  }
+
+  const resolved = '/' + out.join('/');
+
+  // Final clamp — if somehow still outside WORK_DIR, anchor back inside
+  if (!resolved.startsWith(WORK_DIR)) {
+    return WORK_DIR + resolved;
+  }
+
+  return resolved;
+}
+
 const logger = createScopedLogger('E2BShim');
 
 type ServerReadyCallback = (port: number, url: string) => void;
@@ -61,7 +98,7 @@ export class E2BContainerShim {
 
   readonly fs = {
     async readFile(path: string, encoding?: string): Promise<string | Uint8Array> {
-      const fullPath = path.startsWith('/') ? path : `${WORK_DIR}/${path}`;
+      const fullPath = resolveSandboxPath(path);
       const content = await e2bFiles.read(fullPath);
 
       if (encoding === 'utf-8' || encoding === 'utf8') {
@@ -72,13 +109,13 @@ export class E2BContainerShim {
     },
 
     async writeFile(path: string, content: string | Uint8Array): Promise<void> {
-      const fullPath = path.startsWith('/') ? path : `${WORK_DIR}/${path}`;
+      const fullPath = resolveSandboxPath(path);
       const text = content instanceof Uint8Array ? new TextDecoder().decode(content) : content;
       await e2bFiles.write(fullPath, text);
     },
 
     async mkdir(path: string, opts?: { recursive?: boolean }): Promise<void> {
-      const fullPath = path.startsWith('/') ? path : `${WORK_DIR}/${path}`;
+      const fullPath = resolveSandboxPath(path);
       await e2bFiles.mkdir(fullPath);
     },
 
@@ -86,7 +123,7 @@ export class E2BContainerShim {
       path: string,
       opts?: { withFileTypes?: boolean },
     ): Promise<string[] | Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>> {
-      const fullPath = path.startsWith('/') ? path : `${WORK_DIR}/${path}`;
+      const fullPath = resolveSandboxPath(path);
       const entries = await e2bFiles.list(fullPath);
 
       if (opts?.withFileTypes) {
@@ -101,7 +138,7 @@ export class E2BContainerShim {
     },
 
     async rm(path: string, opts?: { recursive?: boolean }): Promise<void> {
-      const fullPath = path.startsWith('/') ? path : `${WORK_DIR}/${path}`;
+      const fullPath = resolveSandboxPath(path);
       await e2bFiles.rm(fullPath, opts);
     },
   };

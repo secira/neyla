@@ -1,10 +1,44 @@
 import { Router } from 'express';
+import { resolve } from 'path';
 import { getOrCreateSandbox, destroySandbox } from '../e2b-sandbox.js';
 
 const router = Router();
+const WORK_DIR = '/home/project';
 
 function getSandboxId(req) {
   return req.headers['x-sandbox-id'] || 'default';
+}
+
+/**
+ * Normalize a file path so it is always absolute and confined to WORK_DIR.
+ * Handles:
+ *   - Paths already under WORK_DIR  → returned as-is after resolving ..
+ *   - Root-absolute paths (/foo)    → WORK_DIR/foo
+ *   - Relative paths (foo/bar)      → WORK_DIR/foo/bar
+ * Any path that after resolution escapes WORK_DIR is clamped back inside.
+ */
+function normalizeSandboxPath(filePath) {
+  if (!filePath) return WORK_DIR;
+
+  // If already under WORK_DIR, resolve in place to strip any ..
+  let base;
+  if (filePath.startsWith(WORK_DIR + '/') || filePath === WORK_DIR) {
+    base = resolve(filePath);
+  } else if (filePath.startsWith('/')) {
+    // Root-absolute but NOT under WORK_DIR — anchor to WORK_DIR
+    base = resolve(WORK_DIR + '/' + filePath.replace(/^\/+/, ''));
+  } else {
+    base = resolve(WORK_DIR + '/' + filePath);
+  }
+
+  // Safety clamp: if resolve() escapes WORK_DIR, anchor the resolved
+  // path back under WORK_DIR by prepending (base is already absolute).
+  // e.g., /eslint.config.js → /home/project/eslint.config.js
+  if (!base.startsWith(WORK_DIR)) {
+    base = WORK_DIR + (base.startsWith('/') ? base : '/' + base);
+  }
+
+  return base;
 }
 
 router.post('/exec', async (req, res) => {
@@ -60,7 +94,7 @@ router.post('/exec/stream', async (req, res) => {
 
 router.get('/files/read', async (req, res) => {
   try {
-    const { path: filePath } = req.query;
+    const filePath = normalizeSandboxPath(req.query.path);
     const sandboxId = getSandboxId(req);
     const sandbox = await getOrCreateSandbox(sandboxId);
 
@@ -73,7 +107,8 @@ router.get('/files/read', async (req, res) => {
 
 router.post('/files/write', async (req, res) => {
   try {
-    const { path: filePath, content } = req.body;
+    const filePath = normalizeSandboxPath(req.body.path);
+    const { content } = req.body;
     const sandboxId = getSandboxId(req);
     const sandbox = await getOrCreateSandbox(sandboxId);
 
@@ -86,7 +121,7 @@ router.post('/files/write', async (req, res) => {
 
 router.post('/files/mkdir', async (req, res) => {
   try {
-    const { path: dirPath } = req.body;
+    const dirPath = normalizeSandboxPath(req.body.path);
     const sandboxId = getSandboxId(req);
     const sandbox = await getOrCreateSandbox(sandboxId);
 
@@ -99,11 +134,11 @@ router.post('/files/mkdir', async (req, res) => {
 
 router.get('/files/list', async (req, res) => {
   try {
-    const { path: dirPath } = req.query;
+    const dirPath = normalizeSandboxPath(req.query.path || WORK_DIR);
     const sandboxId = getSandboxId(req);
     const sandbox = await getOrCreateSandbox(sandboxId);
 
-    const entries = await sandbox.files.list(dirPath || '/home/project');
+    const entries = await sandbox.files.list(dirPath);
     res.json({ entries });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -112,7 +147,8 @@ router.get('/files/list', async (req, res) => {
 
 router.delete('/files/delete', async (req, res) => {
   try {
-    const { path: filePath, recursive } = req.body;
+    const filePath = normalizeSandboxPath(req.body.path);
+    const { recursive } = req.body;
     const sandboxId = getSandboxId(req);
     const sandbox = await getOrCreateSandbox(sandboxId);
 

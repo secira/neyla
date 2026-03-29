@@ -314,7 +314,25 @@ export class ActionRunner {
     }
 
     const webcontainer = await this.#webcontainer;
-    const relativePath = nodePath.relative(webcontainer.workdir, action.filePath);
+
+    /*
+     * Normalize the file path so it is always absolute and under workdir.
+     * The AI sometimes generates paths like /tsconfig.json (root-relative)
+     * instead of /home/project/tsconfig.json. Treat those as workdir-relative.
+     */
+    let absolutePath: string;
+
+    if (action.filePath.startsWith(webcontainer.workdir + '/') || action.filePath === webcontainer.workdir) {
+      absolutePath = action.filePath;
+    } else if (action.filePath.startsWith('/')) {
+      // Root-absolute path that is NOT under workdir — anchor it to workdir
+      absolutePath = `${webcontainer.workdir}/${action.filePath.replace(/^\/+/, '')}`;
+    } else {
+      absolutePath = `${webcontainer.workdir}/${action.filePath}`;
+    }
+
+    // Use only the portion relative to workdir so the shim prepends it correctly
+    const relativePath = absolutePath.slice(webcontainer.workdir.length + 1);
 
     let folder = nodePath.dirname(relativePath);
 
