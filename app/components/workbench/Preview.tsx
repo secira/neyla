@@ -61,6 +61,8 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const hasSelectedPreview = useRef(false);
   const previews = useStore(workbenchStore.previews);
+  const files = useStore(workbenchStore.files);
+  const hasFiles = Object.values(files).some((f) => f?.type === 'file');
   const activePreview = previews[activePreviewIndex];
   const [displayPath, setDisplayPath] = useState('/');
   const [iframeUrl, setIframeUrl] = useState<string | undefined>();
@@ -1012,14 +1014,39 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
             </>
           ) : (
             <div className="flex flex-col w-full h-full justify-center items-center bg-bolt-elements-background-depth-1 select-none">
-              <div
-                className="flex items-center justify-center w-16 h-16 rounded-2xl mb-5 shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 55%, #784BA0 100%)' }}
-              >
-                <span className="text-white text-3xl font-black tracking-tight">S</span>
-              </div>
-              <p className="text-lg font-semibold text-bolt-elements-textSecondary mb-1">Your preview will appear here</p>
-              <p className="text-sm text-bolt-elements-textTertiary">Ask Skech to build something to get started</p>
+              {hasFiles ? (
+                <>
+                  <div className="relative mb-5">
+                    <div
+                      className="flex items-center justify-center w-16 h-16 rounded-2xl shadow-lg"
+                      style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 55%, #784BA0 100%)' }}
+                    >
+                      <span className="text-white text-3xl font-black tracking-tight">S</span>
+                    </div>
+                    <div
+                      className="absolute -inset-1 rounded-2xl animate-spin"
+                      style={{
+                        background: 'conic-gradient(from 0deg, transparent 0%, #FF6B2B 50%, transparent 100%)',
+                        mask: 'radial-gradient(farthest-side, transparent calc(100% - 3px), white calc(100% - 3px))',
+                        WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 3px), white calc(100% - 3px))',
+                      }}
+                    />
+                  </div>
+                  <p className="text-lg font-semibold text-bolt-elements-textSecondary mb-1">Starting dev server...</p>
+                  <p className="text-sm text-bolt-elements-textTertiary">Installing packages and launching your app</p>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="flex items-center justify-center w-16 h-16 rounded-2xl mb-5 shadow-lg"
+                    style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 55%, #784BA0 100%)' }}
+                  >
+                    <span className="text-white text-3xl font-black tracking-tight">S</span>
+                  </div>
+                  <p className="text-lg font-semibold text-bolt-elements-textSecondary mb-1">Your preview will appear here</p>
+                  <p className="text-sm text-bolt-elements-textTertiary">Ask Skech to build something to get started</p>
+                </>
+              )}
             </div>
           )}
 
