@@ -14,7 +14,7 @@ export interface PreviewInfo {
 }
 
 const PREVIEW_CHANNEL = 'preview-updates';
-const COMMON_PORTS = [3000, 5173, 5174, 8080, 4173, 3001, 4000];
+const COMMON_PORTS = [3000, 5173, 5174, 8080, 4173, 4000];
 const POLL_INTERVAL = 3000;
 
 export class PreviewsStore {

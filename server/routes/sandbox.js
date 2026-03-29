@@ -163,7 +163,9 @@ router.post('/exec/stream', async (req, res) => {
 
       send({ type: 'stdout', data: `\r\n$ ${serverCmd} (starting in background…)\r\n` });
 
+      console.log(`[exec/stream] Launching background server: ${shellScript}`);
       await sandbox.commands.run(bgCommand, { cwd: workDir, timeoutMs: 10000 });
+      console.log(`[exec/stream] Background server launched`);
 
       // Tail the log for up to 8 s so the user sees early output, sending
       // only newly-appended content each tick.
@@ -278,42 +280,102 @@ router.delete('/files/delete', async (req, res) => {
   }
 });
 
+// ─── Bulk port-check cache ────────────────────────────────────────────────────
+// Cache the result of the inside-sandbox bulk port scan for 2 s so that
+// simultaneous polls for different ports share one scan.
+const portScanCache = new Map(); // sandboxId → { ts, result }
+const PORT_SCAN_TTL = 2000; // ms
+
+async function getListeningPortStatuses(sandbox, sandboxId, ports) {
+  const cached = portScanCache.get(sandboxId);
+
+  if (cached && Date.now() - cached.ts < PORT_SCAN_TTL) {
+    return cached.result;
+  }
+
+  // Single shell command: check all ports in parallel.
+  // We probe the sandbox's own non-loopback IP (the same address E2B's external
+  // proxy uses), so the check only passes when the server is actually reachable
+  // from outside the loopback interface — i.e. it's bound to 0.0.0.0.
+  // Fallback to localhost if LOCAL_IP is empty.
+  const checks = ports
+    .map(
+      (p) =>
+        `{ LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}'); PROBE_HOST=${`\${LOCAL_IP:-127.0.0.1}`}; code=$(curl -s --connect-timeout 1 --max-time 2 -o /dev/null -w "%{http_code}" http://$PROBE_HOST:${p}/ 2>/dev/null || echo 000); echo "${p}:$code"; } &`,
+    )
+    .join(' ');
+  const cmd = `${checks} wait`;
+
+  const result = await sandbox.commands.run(cmd, { timeoutMs: 8000 });
+  const lines = (result.stdout || '').split('\n').filter(Boolean);
+
+  const statuses = {};
+
+  for (const line of lines) {
+    const [portStr, codeStr] = line.trim().split(':');
+    const port = parseInt(portStr, 10);
+    const code = parseInt(codeStr || '000', 10);
+
+    if (!isNaN(port)) {
+      statuses[port] = code;
+    }
+  }
+
+  portScanCache.set(sandboxId, { ts: Date.now(), result: statuses });
+
+  return statuses;
+}
+
 router.get('/preview-url', async (req, res) => {
   try {
     const { port } = req.query;
+    const portNum = parseInt(port || '3000', 10);
     const sandboxId = getSandboxId(req);
     const sandbox = await getOrCreateSandbox(sandboxId);
 
-    const host = await sandbox.getHost(parseInt(port || '3000', 10));
-    const url = `https://${host}`;
+    // Check from INSIDE the sandbox — the only reliable way to know if a
+    // server is actually listening. We batch all port scans into one command
+    // and cache the result so parallel polls share one E2B round-trip.
+    const SCAN_PORTS = [3000, 5173, 5174, 8080, 4173, 4000];
 
-    // Verify the sandbox port is actually accepting HTTP connections before
-    // returning the URL. sandbox.getHost() always resolves even when nothing
-    // is listening, so without this check the iframe shows "refused to connect".
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3000);
+      const statuses = await getListeningPortStatuses(sandbox, sandboxId, SCAN_PORTS);
+      const statusCode = statuses[portNum] ?? 0;
 
-      const probe = await fetch(url, {
-        method: 'GET',
-        signal: controller.signal,
-        redirect: 'follow',
-      });
+      console.log(`[preview-url] port=${portNum} status=${statusCode} (scan: ${JSON.stringify(statuses)})`);
 
-      clearTimeout(timer);
-
-      // Accept 2xx, 3xx, 4xx — any real HTTP response means a server is up.
-      // Reject 5xx (incl. 502 Bad Gateway) which E2B returns when nothing is
-      // listening on the port yet.
-      if (probe.status >= 200 && probe.status < 500) {
-        return res.json({ url });
+      // Accept 2xx-4xx. Reject 000 (no server), 5xx (not ready yet).
+      if (statusCode >= 200 && statusCode < 500) {
+        const host = await sandbox.getHost(portNum);
+        console.log(`[preview-url] port=${portNum} READY → ${host}`);
+        return res.json({ url: `https://${host}` });
       }
-    } catch {
-      // Connection refused or timeout — server not ready yet
-      return res.status(503).json({ error: 'Server not ready' });
+    } catch (scanErr) {
+      console.log(`[preview-url] port=${portNum} scan failed:`, scanErr.message);
     }
 
     res.status(503).json({ error: 'Server not ready' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug: return devserver log + listening ports (helps diagnose preview issues)
+router.get('/debug/devserver', async (req, res) => {
+  try {
+    const sandboxId = getSandboxId(req);
+    const sandbox = await getOrCreateSandbox(sandboxId);
+    const logFile = '/home/project/.devserver.log';
+
+    const [logResult, portsResult] = await Promise.all([
+      sandbox.commands.run(`cat ${logFile} 2>/dev/null || echo "(no log yet)"`, { timeoutMs: 4000 }),
+      sandbox.commands.run(`ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null || echo "(ss unavailable)"`, { timeoutMs: 4000 }),
+    ]);
+
+    res.json({
+      log: logResult.stdout || '',
+      listeningPorts: portsResult.stdout || '',
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
