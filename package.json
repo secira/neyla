@@ -13,6 +13,7 @@
   "scripts": {
     "deploy": "npm run build && wrangler pages deploy",
     "build": "remix vite:build",
+    "start:replit": "node pre-start.cjs && concurrently --names \"remix,auth\" --prefix-colors \"cyan,magenta\" \"remix vite:dev\" \"node server/index.js\"",
     "dev": "node pre-start.cjs && concurrently --names \"remix,auth\" --prefix-colors \"cyan,magenta\" \"remix vite:dev\" \"node server/index.js\"",
     "dev:auth": "node server/index.js",
     "test": "vitest --run",
