@@ -40,4 +40,4 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "serve.cjs"]
-build = ["bash", "-c", "NODE_OPTIONS='--max-old-space-size=4096' npm run build"]
+build = ["echo", "Build included in source"]

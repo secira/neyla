@@ -1,31 +1,23 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const { createRequestHandler } = require('@remix-run/node');
 
 const BUILD_DIR = path.join(__dirname, 'build');
 const PORT = 5000;
-
-console.log('Starting production server...');
-console.log('Build directory:', BUILD_DIR);
-console.log('Port:', PORT);
-
-const fs = require('fs');
-const serverEntry = path.join(BUILD_DIR, 'server', 'index.js');
 const clientDir = path.join(BUILD_DIR, 'client');
+const serverEntry = path.join(BUILD_DIR, 'server', 'index.js');
 
-if (!fs.existsSync(serverEntry)) {
-  console.error('ERROR: Server build not found at', serverEntry);
+if (!fs.existsSync(serverEntry) || !fs.existsSync(clientDir)) {
+  console.error('Build files missing. Run npm run build first.');
   process.exit(1);
 }
-
-if (!fs.existsSync(clientDir)) {
-  console.error('ERROR: Client build not found at', clientDir);
-  process.exit(1);
-}
-
-console.log('Build files verified successfully');
 
 const app = express();
+
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 app.use(
   '/assets',
@@ -43,35 +35,76 @@ app.use(
 
 let buildModule;
 
-async function loadBuild() {
+async function getBuild() {
   if (!buildModule) {
-    console.log('Loading server build module...');
     buildModule = await import('./build/server/index.js');
-    console.log('Server build module loaded successfully');
   }
   return buildModule;
 }
 
-loadBuild().catch((err) => {
-  console.error('Failed to preload server build:', err);
-});
+getBuild().catch((err) => console.error('Build preload error:', err));
 
 app.all('{*path}', async (req, res, next) => {
   try {
-    const build = await loadBuild();
-    const handler = createRequestHandler({ build, mode: 'production' });
-    return handler(req, res, next);
+    const build = await getBuild();
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const headers = new Headers();
+
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (typeof value === 'string') {
+        headers.set(key, value);
+      } else if (Array.isArray(value)) {
+        for (const v of value) {
+          headers.append(key, v);
+        }
+      }
+    }
+
+    const controller = new AbortController();
+    req.on('close', () => controller.abort());
+
+    const webRequest = new Request(url.href, {
+      method: req.method,
+      headers,
+      body: req.method !== 'GET' && req.method !== 'HEAD' ? req : undefined,
+      duplex: 'half',
+      signal: controller.signal,
+    });
+
+    const handler = createRequestHandler(build, 'production');
+    const webResponse = await handler(webRequest);
+
+    res.status(webResponse.status);
+
+    for (const [key, value] of webResponse.headers.entries()) {
+      res.setHeader(key, value);
+    }
+
+    if (webResponse.body) {
+      const reader = webResponse.body.getReader();
+
+      async function pump() {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          res.end();
+          return;
+        }
+
+        res.write(Buffer.from(value));
+        await pump();
+      }
+
+      await pump();
+    } else {
+      res.end();
+    }
   } catch (error) {
-    console.error('SSR Error:', error);
+    console.error('Request error:', error);
     next(error);
   }
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Production server listening on http://0.0.0.0:${PORT}`);
-});
-
-server.on('error', (err) => {
-  console.error('Server error:', err);
-  process.exit(1);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on port ${PORT}`);
 });
