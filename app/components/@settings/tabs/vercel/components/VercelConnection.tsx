@@ -22,14 +22,6 @@ export default function VercelConnection() {
   const [isProjectsExpanded, setIsProjectsExpanded] = useState(false);
   const hasInitialized = useRef(false);
 
-  console.log('VercelConnection initial state:', {
-    connection: {
-      user: connection.user,
-      token: connection.token ? '[TOKEN_EXISTS]' : '[NO_TOKEN]',
-    },
-    envToken: import.meta.env?.VITE_VERCEL_ACCESS_TOKEN ? '[ENV_TOKEN_EXISTS]' : '[NO_ENV_TOKEN]',
-  });
-
   useEffect(() => {
     // Prevent multiple initializations
     if (hasInitialized.current) {
