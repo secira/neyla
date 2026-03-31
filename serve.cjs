@@ -1,27 +1,37 @@
-const { spawn } = require('child_process');
+const express = require('express');
 const path = require('path');
+const { createRequestHandler } = require('@remix-run/node');
 
-const wranglerBin = path.join(
-  __dirname,
-  'node_modules/.pnpm/wrangler@4.44.0_@cloudflare+workers-types@4.20251014.0/node_modules/wrangler/wrangler-dist/cli.js'
+const BUILD_DIR = path.join(__dirname, 'build');
+const PORT = process.env.PORT || 5000;
+
+const app = express();
+
+app.use(
+  '/assets',
+  express.static(path.join(BUILD_DIR, 'client', 'assets'), {
+    immutable: true,
+    maxAge: '1y',
+  })
 );
 
-const subcommand = ['pages', Buffer.from('ZGV2', 'base64').toString()];
-
-const wrangler = spawn(
-  'node',
-  ['--require', './polyfill-file.cjs', wranglerBin, ...subcommand, './build/client', '--port', '5000'],
-  { stdio: 'inherit' }
+app.use(
+  express.static(path.join(BUILD_DIR, 'client'), {
+    maxAge: '1h',
+  })
 );
 
-const auth = spawn('node', ['server/index.js'], { stdio: 'inherit' });
-
-process.on('SIGTERM', () => {
-  wrangler.kill('SIGTERM');
-  auth.kill('SIGTERM');
+app.all('{*path}', async (req, res, next) => {
+  try {
+    const build = await import('./build/server/index.js');
+    const handler = createRequestHandler({ build, mode: 'production' });
+    return handler(req, res, next);
+  } catch (error) {
+    console.error('SSR Error:', error);
+    next(error);
+  }
 });
 
-process.on('SIGINT', () => {
-  wrangler.kill('SIGINT');
-  auth.kill('SIGINT');
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Production server running on port ${PORT}`);
 });
