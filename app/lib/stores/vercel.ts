@@ -63,8 +63,6 @@ export const updateVercelConnection = (updates: Partial<VercelConnection>) => {
 
 // Auto-connect using environment token
 export async function autoConnectVercel() {
-  console.log('autoConnectVercel called, envToken exists:', !!envToken);
-
   if (!envToken) {
     console.error('No Vercel token found in environment');
     return { success: false, error: 'No Vercel token found in environment' };
