@@ -30,12 +30,6 @@ export default function VercelConnection() {
     }
 
     const initializeConnection = async () => {
-      console.log('Vercel initializeConnection:', {
-        user: connection.user,
-        token: connection.token ? '[TOKEN_EXISTS]' : '[NO_TOKEN]',
-        envToken: import.meta.env?.VITE_VERCEL_ACCESS_TOKEN ? '[ENV_TOKEN_EXISTS]' : '[NO_ENV_TOKEN]',
-      });
-
       hasInitialized.current = true;
 
       // Auto-connect using environment variable if no existing connection but token exists
