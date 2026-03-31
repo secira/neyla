@@ -95,11 +95,6 @@ export const loader: LoaderFunction = async ({ request, context }: LoaderFunctio
 
     const token = serverGithubToken || headerToken || cookieToken;
 
-    console.log(
-      'Using GitHub token from:',
-      serverGithubToken ? 'server env' : headerToken ? 'auth header' : cookieToken ? 'cookie' : 'none',
-    );
-
     if (!token) {
       console.error('No GitHub token available');
       return json(
