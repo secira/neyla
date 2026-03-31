@@ -53,14 +53,6 @@ export default function NetlifyConnection() {
   const [deploys, setDeploys] = useState<NetlifyDeploy[]>([]);
   const [builds, setBuilds] = useState<NetlifyBuild[]>([]);
 
-  console.log('NetlifyConnection initial state:', {
-    connection: {
-      user: connection.user,
-      token: connection.token ? '[TOKEN_EXISTS]' : '[NO_TOKEN]',
-    },
-    envToken: import.meta.env?.VITE_NETLIFY_ACCESS_TOKEN ? '[ENV_TOKEN_EXISTS]' : '[NO_ENV_TOKEN]',
-  });
-
   const [deploymentCount, setDeploymentCount] = useState(0);
   const [lastUpdated, setLastUpdated] = useState('');
   const [isStatsOpen, setIsStatsOpen] = useState(false);
