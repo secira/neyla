@@ -38,7 +38,7 @@ localPort = 5000
 externalPort = 80
 
 [deployment]
-deploymentTarget = "static"
-run = ["bash", "-c", "echo 'static site'"]
-build = ["bash", "-c", "npm run build"]
+deploymentTarget = "autoscale"
+run = ["bash", "start.sh"]
+build = ["bash", "-c", "NODE_OPTIONS='--max-old-space-size=4096' npm run build"]
 publicDir = "build/client"
