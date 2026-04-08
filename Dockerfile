@@ -32,7 +32,21 @@ FROM build AS prod-deps
 RUN pnpm prune --prod --ignore-scripts
 
 
-# ---- production stage ----
+# ---- development stage (not the default) ----
+FROM build AS development
+
+ARG VITE_LOG_LEVEL=debug
+ARG DEFAULT_NUM_CTX
+
+ENV VITE_LOG_LEVEL=${VITE_LOG_LEVEL} \
+    DEFAULT_NUM_CTX=${DEFAULT_NUM_CTX} \
+    RUNNING_IN_DOCKER=true
+
+RUN mkdir -p /app/run
+CMD ["pnpm", "run", "start:replit", "--host"]
+
+
+# ---- production stage (default — must be last) ----
 FROM node:22-bookworm-slim AS bolt-ai-production
 WORKDIR /app
 
@@ -65,17 +79,3 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
 
 # Start production server
 CMD ["node", "serve.cjs"]
-
-
-# ---- development stage ----
-FROM build AS development
-
-ARG VITE_LOG_LEVEL=debug
-ARG DEFAULT_NUM_CTX
-
-ENV VITE_LOG_LEVEL=${VITE_LOG_LEVEL} \
-    DEFAULT_NUM_CTX=${DEFAULT_NUM_CTX} \
-    RUNNING_IN_DOCKER=true
-
-RUN mkdir -p /app/run
-CMD ["pnpm", "run", "start:replit", "--host"]
