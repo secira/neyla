@@ -1,0 +1,77 @@
+[Region: us-west1]
+=========================
+Using Detected Dockerfile
+=========================
+
+context: k0zx-qr4N
+
+internal
+load build definition from Dockerfile
+0ms
+
+internal
+load metadata for docker.io/library/node:22-bookworm-slim
+463ms
+
+auth
+library/node:pull token for registry-1.docker.io
+0ms
+
+internal
+load .dockerignore
+0ms
+
+build
+FROM docker.io/library/node:22-bookworm-slim@sha256:f3a68cf41a855d227d1b0ab832bed9749469ef38cf4f58182fb8c893bc462383
+6ms
+
+internal
+load build context
+0ms
+
+build
+WORKDIR /app cached
+0ms
+
+build
+RUN corepack enable && corepack prepare pnpm@10.27.0 --activate
+1s
+Preparing pnpm@10.27.0 for immediate activation...
+
+build
+RUN apt-get update && apt-get install -y --no-install-recommends git   && rm -rf /var/lib/apt/lists/*
+6s
+Processing triggers for libc-bin (2.36-9+deb12u13) ...
+
+build
+COPY package.json pnpm-lock.yaml* ./
+74ms
+
+build
+RUN pnpm fetch
+10s
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+build
+COPY . .
+1s
+
+build
+RUN pnpm install --offline --frozen-lockfile --ignore-scripts
+6s
+Recreating /app/node_modules
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1720
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 1720, reused 0, downloaded 0, added 0
+ ERR_PNPM_NO_OFFLINE_TARBALL  A package is missing from the store but cannot download it in offline mode. The missing package may be downloaded from https://registry.npmjs.org/@ai-sdk/amazon-bedrock/-/amazon-bedrock-1.0.6.tgz.
+Dockerfile:26
+-------------------
+24 |     # Copy source and install
+25 |     COPY . .
+26 | >>> RUN pnpm install --offline --frozen-lockfile --ignore-scripts
+27 |
+28 |     # Build the Remix app (SSR + client)
+-------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c pnpm install --offline --frozen-lockfile --ignore-scripts" did not complete successfully: exit code: 1

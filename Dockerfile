@@ -17,13 +17,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
 ARG VITE_PUBLIC_APP_URL
 ENV VITE_PUBLIC_APP_URL=${VITE_PUBLIC_APP_URL}
 
-# Install deps efficiently using offline fetch
+# Copy source and install dependencies
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm fetch
-
-# Copy source and install
 COPY . .
-RUN pnpm install --offline --frozen-lockfile --ignore-scripts
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Build the Remix app (SSR + client)
 RUN NODE_OPTIONS=--max-old-space-size=4096 pnpm run build
