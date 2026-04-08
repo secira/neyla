@@ -77,14 +77,14 @@ export default function Login() {
       return;
     }
 
-    const handler = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin) return;
+    const channel = new BroadcastChannel('oauth_result');
+
+    channel.onmessage = (e) => {
+      channel.close();
 
       if (e.data?.type === 'oauth_success') {
-        window.removeEventListener('message', handler);
         fetchCurrentUser().then(() => navigate('/'));
       } else if (e.data?.type === 'oauth_error') {
-        window.removeEventListener('message', handler);
         const messages: Record<string, string> = {
           invalid_state: 'Authentication failed. Please try again.',
           google_token_failed: 'Google login failed. Please try again.',
@@ -95,8 +95,6 @@ export default function Login() {
         setError(messages[e.data.error] || 'Authentication failed.');
       }
     };
-
-    window.addEventListener('message', handler);
   };
 
   const handleGitHubLogin = () => openOAuthPopup('/api/auth/github');

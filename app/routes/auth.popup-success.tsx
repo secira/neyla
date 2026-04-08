@@ -6,20 +6,16 @@ export default function AuthPopupSuccess() {
   const authError = searchParams.get('auth_error');
 
   useEffect(() => {
-    if (window.opener) {
-      if (authError) {
-        window.opener.postMessage({ type: 'oauth_error', error: authError }, window.location.origin);
-      } else {
-        window.opener.postMessage({ type: 'oauth_success' }, window.location.origin);
-      }
-      window.close();
+    const channel = new BroadcastChannel('oauth_result');
+
+    if (authError) {
+      channel.postMessage({ type: 'oauth_error', error: authError });
     } else {
-      if (authError) {
-        window.location.href = `/login?auth_error=${authError}`;
-      } else {
-        window.location.href = '/';
-      }
+      channel.postMessage({ type: 'oauth_success' });
     }
+
+    channel.close();
+    window.close();
   }, [authError]);
 
   return (

@@ -62,19 +62,17 @@ export default function Signup() {
       return;
     }
 
-    const handler = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin) return;
+    const channel = new BroadcastChannel('oauth_result');
+
+    channel.onmessage = (e) => {
+      channel.close();
 
       if (e.data?.type === 'oauth_success') {
-        window.removeEventListener('message', handler);
         fetchCurrentUser().then(() => navigate('/'));
       } else if (e.data?.type === 'oauth_error') {
-        window.removeEventListener('message', handler);
         setError('Authentication failed. Please try again.');
       }
     };
-
-    window.addEventListener('message', handler);
   };
 
   const handleGitHubLogin = () => openOAuthPopup('/api/auth/github');
