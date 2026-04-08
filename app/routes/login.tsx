@@ -83,7 +83,7 @@ export default function Login() {
       channel.close();
 
       if (e.data?.type === 'oauth_success') {
-        fetchCurrentUser().then(() => navigate('/'));
+        window.location.href = '/';
       } else if (e.data?.type === 'oauth_error') {
         const messages: Record<string, string> = {
           invalid_state: 'Authentication failed. Please try again.',

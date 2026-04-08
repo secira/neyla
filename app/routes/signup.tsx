@@ -68,7 +68,7 @@ export default function Signup() {
       channel.close();
 
       if (e.data?.type === 'oauth_success') {
-        fetchCurrentUser().then(() => navigate('/'));
+        window.location.href = '/';
       } else if (e.data?.type === 'oauth_error') {
         setError('Authentication failed. Please try again.');
       }
