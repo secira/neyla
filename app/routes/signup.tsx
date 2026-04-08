@@ -51,13 +51,34 @@ export default function Signup() {
     }
   };
 
-  const handleGitHubLogin = () => {
-    window.location.href = '/api/auth/github';
+  const openOAuthPopup = (url: string) => {
+    const w = 500, h = 650;
+    const left = Math.round(window.screenX + (window.outerWidth - w) / 2);
+    const top = Math.round(window.screenY + (window.outerHeight - h) / 2);
+    const popup = window.open(url, 'oauth_popup', `width=${w},height=${h},left=${left},top=${top},popup=yes`);
+
+    if (!popup) {
+      window.location.href = url;
+      return;
+    }
+
+    const handler = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+
+      if (e.data?.type === 'oauth_success') {
+        window.removeEventListener('message', handler);
+        fetchCurrentUser().then(() => navigate('/'));
+      } else if (e.data?.type === 'oauth_error') {
+        window.removeEventListener('message', handler);
+        setError('Authentication failed. Please try again.');
+      }
+    };
+
+    window.addEventListener('message', handler);
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = '/api/auth/google';
-  };
+  const handleGitHubLogin = () => openOAuthPopup('/api/auth/github');
+  const handleGoogleLogin = () => openOAuthPopup('/api/auth/google');
 
   if (loading || user) {
     return (

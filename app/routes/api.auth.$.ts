@@ -36,12 +36,17 @@ async function proxyToAuthServer(request: Request, path: string): Promise<Respon
     redirect: 'manual',
   });
 
+  const responseInit: ResponseInit = { status: upstream.status };
   const responseHeaders = new Headers();
 
-  const setCookie = upstream.headers.get('set-cookie');
+  // Forward all Set-Cookie headers individually (handles multiple cookies correctly)
+  const setCookies: string[] =
+    typeof (upstream.headers as any).getSetCookie === 'function'
+      ? (upstream.headers as any).getSetCookie()
+      : (upstream.headers.get('set-cookie') ? [upstream.headers.get('set-cookie') as string] : []);
 
-  if (setCookie) {
-    responseHeaders.set('set-cookie', setCookie);
+  for (const sc of setCookies) {
+    responseHeaders.append('set-cookie', sc);
   }
 
   responseHeaders.set('content-type', upstream.headers.get('content-type') || 'application/json');
@@ -52,12 +57,11 @@ async function proxyToAuthServer(request: Request, path: string): Promise<Respon
     responseHeaders.set('location', location);
   }
 
+  responseInit.headers = responseHeaders;
+
   const text = await upstream.text();
 
-  return new Response(text, {
-    status: upstream.status,
-    headers: responseHeaders,
-  });
+  return new Response(text, responseInit);
 }
 
 export const loader: LoaderFunction = async ({ request, params }) => {

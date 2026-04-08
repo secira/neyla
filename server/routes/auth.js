@@ -161,7 +161,7 @@ router.get('/google/callback', async (req, res) => {
 
     if (!state || state !== storedState) {
       console.log('[Google CB] State mismatch — redirecting to invalid_state');
-      return res.redirect('/login?auth_error=invalid_state');
+      return res.redirect('/auth/popup-success?auth_error=invalid_state');
     }
 
     res.clearCookie('oauth_state', { path: '/' });
@@ -184,7 +184,7 @@ router.get('/google/callback', async (req, res) => {
 
     if (tokenData.error) {
       console.error('Google token error:', tokenData);
-      return res.redirect('/login?auth_error=google_token_failed');
+      return res.redirect('/auth/popup-success?auth_error=google_token_failed');
     }
 
     const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -249,10 +249,10 @@ router.get('/google/callback', async (req, res) => {
     const token = signToken(user);
 
     res.cookie('skech_token', token, COOKIE_OPTIONS);
-    return res.redirect('/');
+    return res.redirect('/auth/popup-success');
   } catch (err) {
     console.error('Google OAuth error:', err);
-    return res.redirect('/login?auth_error=google_failed');
+    return res.redirect('/auth/popup-success?auth_error=google_failed');
   }
 });
 
@@ -281,7 +281,7 @@ router.get('/github/callback', async (req, res) => {
     const storedState = req.cookies?.oauth_state;
 
     if (!state || state !== storedState) {
-      return res.redirect('/?auth_error=invalid_state');
+      return res.redirect('/auth/popup-success?auth_error=invalid_state');
     }
 
     res.clearCookie('oauth_state', { path: '/' });
@@ -299,7 +299,7 @@ router.get('/github/callback', async (req, res) => {
     const tokenData = await tokenRes.json();
 
     if (tokenData.error) {
-      return res.redirect('/?auth_error=github_token_failed');
+      return res.redirect('/auth/popup-success?auth_error=github_token_failed');
     }
 
     const ghUserRes = await fetch('https://api.github.com/user', {
@@ -368,10 +368,10 @@ router.get('/github/callback', async (req, res) => {
     const token = signToken(user);
 
     res.cookie('skech_token', token, COOKIE_OPTIONS);
-    return res.redirect('/');
+    return res.redirect('/auth/popup-success');
   } catch (err) {
     console.error('GitHub OAuth error:', err);
-    return res.redirect('/?auth_error=github_failed');
+    return res.redirect('/auth/popup-success?auth_error=github_failed');
   }
 });
 
