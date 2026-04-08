@@ -77,24 +77,37 @@ export default function Login() {
       return;
     }
 
-    const channel = new BroadcastChannel('oauth_result');
+    // Clear any stale result before opening the popup
+    localStorage.removeItem('oauth_result');
 
-    channel.onmessage = (e) => {
-      channel.close();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'oauth_result' || !e.newValue) return;
 
-      if (e.data?.type === 'oauth_success') {
-        window.location.href = '/';
-      } else if (e.data?.type === 'oauth_error') {
-        const messages: Record<string, string> = {
-          invalid_state: 'Authentication failed. Please try again.',
-          google_token_failed: 'Google login failed. Please try again.',
-          google_failed: 'Google login failed. Please try again.',
-          github_token_failed: 'GitHub login failed. Please try again.',
-          github_failed: 'GitHub login failed. Please try again.',
-        };
-        setError(messages[e.data.error] || 'Authentication failed.');
+      window.removeEventListener('storage', onStorage);
+
+      try {
+        const result = JSON.parse(e.newValue);
+
+        if (result.type === 'success') {
+          localStorage.removeItem('oauth_result');
+          window.location.href = '/';
+        } else {
+          localStorage.removeItem('oauth_result');
+          const messages: Record<string, string> = {
+            invalid_state: 'Authentication failed. Please try again.',
+            google_token_failed: 'Google login failed. Please try again.',
+            google_failed: 'Google login failed. Please try again.',
+            github_token_failed: 'GitHub login failed. Please try again.',
+            github_failed: 'GitHub login failed. Please try again.',
+          };
+          setError(messages[result.error] || 'Authentication failed.');
+        }
+      } catch {
+        setError('Authentication failed. Please try again.');
       }
     };
+
+    window.addEventListener('storage', onStorage);
   };
 
   const handleGitHubLogin = () => openOAuthPopup('/api/auth/github');

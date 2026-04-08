@@ -6,16 +6,14 @@ export default function AuthPopupSuccess() {
   const authError = searchParams.get('auth_error');
 
   useEffect(() => {
-    const channel = new BroadcastChannel('oauth_result');
-
     if (authError) {
-      channel.postMessage({ type: 'oauth_error', error: authError });
+      localStorage.setItem('oauth_result', JSON.stringify({ type: 'error', error: authError }));
     } else {
-      channel.postMessage({ type: 'oauth_success' });
+      localStorage.setItem('oauth_result', JSON.stringify({ type: 'success', ts: Date.now() }));
     }
 
-    channel.close();
-    window.close();
+    // Give localStorage a moment to sync to other windows, then close
+    setTimeout(() => window.close(), 200);
   }, [authError]);
 
   return (
