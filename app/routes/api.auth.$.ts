@@ -3,9 +3,8 @@ import type { ActionFunction, LoaderFunction } from '@remix-run/cloudflare';
 const AUTH_SERVER = process.env.AUTH_SERVER_URL || 'http://localhost:3001';
 
 async function proxyToAuthServer(request: Request, path: string): Promise<Response> {
-  const url = `${AUTH_SERVER}/auth/${path}`;
-
   const reqUrl = new URL(request.url);
+  const url = `${AUTH_SERVER}/auth/${path}${reqUrl.search}`;
   const forwardedHost = request.headers.get('x-forwarded-host') || reqUrl.host;
   const forwardedProto = request.headers.get('x-forwarded-proto') || reqUrl.protocol.replace(':', '');
   const headers: Record<string, string> = {
