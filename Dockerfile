@@ -37,7 +37,6 @@ FROM node:22-bookworm-slim AS bolt-ai-production
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=5000
 ENV HOST=0.0.0.0
 
 # Non-sensitive build arguments
@@ -60,9 +59,9 @@ COPY --from=prod-deps /app/serve.cjs /app/serve.cjs
 
 EXPOSE 5000
 
-# Healthcheck
+# Healthcheck — uses $PORT set by Railway (defaults to 5000)
 HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=5 \
-  CMD curl -fsS http://localhost:5000/health || exit 1
+  CMD curl -fsS http://localhost:${PORT:-5000}/health || exit 1
 
 # Start production server
 CMD ["node", "serve.cjs"]

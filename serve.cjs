@@ -4,7 +4,7 @@ const fs = require('fs');
 const { createRequestHandler } = require('@remix-run/node');
 
 const BUILD_DIR = path.join(__dirname, 'build');
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 const clientDir = path.join(BUILD_DIR, 'client');
 const serverEntry = path.join(BUILD_DIR, 'server', 'index.js');
 
