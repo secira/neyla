@@ -120,6 +120,13 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
+function getAppUrl(req) {
+  if (process.env.APP_URL) return process.env.APP_URL;
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5000';
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  return `${proto}://${host}`;
+}
+
 router.get('/google', (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
 
@@ -130,7 +137,7 @@ router.get('/google', (req, res) => {
   const state = uuidv4();
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${process.env.APP_URL || 'http://localhost:5000'}/api/auth/google/callback`,
+    redirect_uri: `${getAppUrl(req)}/api/auth/google/callback`,
     response_type: 'code',
     scope: 'openid email profile',
     state,
@@ -153,7 +160,7 @@ router.get('/google/callback', async (req, res) => {
 
     res.clearCookie('oauth_state', { path: '/' });
 
-    const redirectUri = `${process.env.APP_URL || 'http://localhost:5000'}/api/auth/google/callback`;
+    const redirectUri = `${getAppUrl(req)}/api/auth/google/callback`;
 
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -253,7 +260,7 @@ router.get('/github', (req, res) => {
   const state = uuidv4();
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${process.env.APP_URL || 'http://localhost:5000'}/api/auth/github/callback`,
+    redirect_uri: `${getAppUrl(req)}/api/auth/github/callback`,
     scope: 'read:user user:email',
     state,
   });
