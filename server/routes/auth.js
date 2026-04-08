@@ -120,6 +120,129 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
+router.get('/google', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+
+  if (!clientId) {
+    return res.status(500).json({ error: 'Google OAuth not configured' });
+  }
+
+  const state = uuidv4();
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: `${process.env.APP_URL || 'http://localhost:5000'}/api/auth/google/callback`,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    access_type: 'online',
+    prompt: 'select_account',
+  });
+
+  res.cookie('oauth_state', state, { httpOnly: true, maxAge: 10 * 60 * 1000, path: '/' });
+  return res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+router.get('/google/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    const storedState = req.cookies?.oauth_state;
+
+    if (!state || state !== storedState) {
+      return res.redirect('/login?auth_error=invalid_state');
+    }
+
+    res.clearCookie('oauth_state', { path: '/' });
+
+    const redirectUri = `${process.env.APP_URL || 'http://localhost:5000'}/api/auth/google/callback`;
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
+
+    const tokenData = await tokenRes.json();
+
+    if (tokenData.error) {
+      console.error('Google token error:', tokenData);
+      return res.redirect('/login?auth_error=google_token_failed');
+    }
+
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+
+    const googleUser = await userInfoRes.json();
+
+    if (!googleUser.sub) {
+      return res.redirect('/login?auth_error=google_failed');
+    }
+
+    const existingProvider = await pool.query(
+      'SELECT user_id FROM user_auth_providers WHERE provider = $1 AND provider_id = $2',
+      ['google', String(googleUser.sub)],
+    );
+
+    let userId;
+
+    if (existingProvider.rows.length > 0) {
+      userId = existingProvider.rows[0].user_id;
+
+      await pool.query(
+        'UPDATE user_auth_providers SET access_token = $1, updated_at = NOW() WHERE provider = $2 AND provider_id = $3',
+        [tokenData.access_token, 'google', String(googleUser.sub)],
+      );
+
+      if (googleUser.picture) {
+        await pool.query('UPDATE users SET avatar_url = $1 WHERE id = $2 AND (avatar_url IS NULL OR avatar_url = $3)', [
+          googleUser.picture,
+          userId,
+          googleUser.picture,
+        ]);
+      }
+    } else {
+      let existingUser = null;
+
+      if (googleUser.email) {
+        const emailCheck = await pool.query('SELECT id FROM users WHERE email = $1', [googleUser.email]);
+        if (emailCheck.rows.length > 0) existingUser = emailCheck.rows[0];
+      }
+
+      if (existingUser) {
+        userId = existingUser.id;
+      } else {
+        const newUser = await pool.query(
+          'INSERT INTO users (email, name, avatar_url) VALUES ($1, $2, $3) RETURNING id',
+          [googleUser.email || null, googleUser.name || googleUser.email?.split('@')[0] || 'User', googleUser.picture || null],
+        );
+        userId = newUser.rows[0].id;
+      }
+
+      await pool.query(
+        'INSERT INTO user_auth_providers (user_id, provider, provider_id, access_token) VALUES ($1, $2, $3, $4)',
+        [userId, 'google', String(googleUser.sub), tokenData.access_token],
+      );
+    }
+
+    const userResult = await pool.query('SELECT id, email, name, avatar_url FROM users WHERE id = $1', [userId]);
+
+    const user = userResult.rows[0];
+    const token = signToken(user);
+
+    res.cookie('skech_token', token, COOKIE_OPTIONS);
+    return res.redirect('/');
+  } catch (err) {
+    console.error('Google OAuth error:', err);
+    return res.redirect('/login?auth_error=google_failed');
+  }
+});
+
 router.get('/github', (req, res) => {
   const clientId = process.env.GITHUB_CLIENT_ID;
 
