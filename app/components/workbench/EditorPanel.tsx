@@ -87,35 +87,26 @@ export const EditorPanel = memo(
             <Panel defaultSize={20} minSize={15} collapsible className="border-r border-bolt-elements-borderColor">
               <div className="h-full">
                 <Tabs.Root defaultValue="files" className="flex flex-col h-full">
-                  <PanelHeader className="w-full text-sm font-medium text-bolt-elements-textSecondary px-1">
-                    <div className="h-full flex-shrink-0 flex items-center justify-between w-full">
-                      <Tabs.List className="h-full flex-shrink-0 flex items-center">
+                  <PanelHeader className="w-full px-1 border-b border-bolt-elements-borderColor bg-bolt-elements-background-depth-1">
+                    <Tabs.List className="h-full flex items-center gap-0.5">
+                      {[
+                        { value: 'files', label: 'Files', icon: 'i-ph:folder-open' },
+                        { value: 'search', label: 'Search', icon: 'i-ph:magnifying-glass' },
+                      ].map(({ value, label, icon }) => (
                         <Tabs.Trigger
-                          value="files"
+                          key={value}
+                          value={value}
                           className={classNames(
-                            'h-full bg-transparent hover:bg-bolt-elements-background-depth-3 py-0.5 px-2 rounded-lg text-sm font-medium text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary data-[state=active]:text-bolt-elements-textPrimary',
+                            'flex items-center gap-1 py-1 px-2.5 rounded-md text-xs font-medium transition-colors',
+                            'text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
+                            'data-[state=active]:text-bolt-elements-textPrimary data-[state=active]:bg-bolt-elements-background-depth-3',
                           )}
                         >
-                          Files
+                          <div className={`${icon} text-sm`} />
+                          {label}
                         </Tabs.Trigger>
-                        <Tabs.Trigger
-                          value="search"
-                          className={classNames(
-                            'h-full bg-transparent hover:bg-bolt-elements-background-depth-3 py-0.5 px-2 rounded-lg text-sm font-medium text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary data-[state=active]:text-bolt-elements-textPrimary',
-                          )}
-                        >
-                          Search
-                        </Tabs.Trigger>
-                        <Tabs.Trigger
-                          value="locks"
-                          className={classNames(
-                            'h-full bg-transparent hover:bg-bolt-elements-background-depth-3 py-0.5 px-2 rounded-lg text-sm font-medium text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary data-[state=active]:text-bolt-elements-textPrimary',
-                          )}
-                        >
-                          Locks
-                        </Tabs.Trigger>
-                      </Tabs.List>
-                    </div>
+                      ))}
+                    </Tabs.List>
                   </PanelHeader>
 
                   <Tabs.Content value="files" className="flex-grow overflow-auto focus-visible:outline-none">
@@ -133,10 +124,6 @@ export const EditorPanel = memo(
 
                   <Tabs.Content value="search" className="flex-grow overflow-auto focus-visible:outline-none">
                     <Search />
-                  </Tabs.Content>
-
-                  <Tabs.Content value="locks" className="flex-grow overflow-auto focus-visible:outline-none">
-                    <LockManager />
                   </Tabs.Content>
                 </Tabs.Root>
               </div>
