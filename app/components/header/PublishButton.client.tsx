@@ -222,9 +222,25 @@ export function PublishButton() {
           )}
 
           {!loading && info && !info.awsConfigured && (
-            <p className="text-sm text-bolt-elements-textPrimary">
-              Publishing is not set up yet. The site admin needs to add AWS credentials before apps can go live.
-            </p>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-bolt-elements-textPrimary">
+                <div className="i-ph:cloud-slash text-amber-500" />
+                <span>Publishing not yet configured</span>
+              </div>
+              <p className="text-xs text-bolt-elements-textSecondary">
+                To enable publishing, add these two secrets in your Replit project settings:
+              </p>
+              <div className="rounded-md bg-bolt-elements-background-depth-3 px-3 py-2 font-mono text-xs text-bolt-elements-textPrimary flex flex-col gap-1">
+                <span>AWS_ACCESS_KEY_ID</span>
+                <span>AWS_SECRET_ACCESS_KEY</span>
+              </div>
+              <p className="text-xs text-bolt-elements-textTertiary">
+                The IAM user needs EC2 permissions (RunInstances, DescribeInstances, DescribeImages, DescribeVpcs,
+                DescribeSecurityGroups, CreateSecurityGroup, AuthorizeSecurityGroupIngress, CreateTags). Servers launch
+                in ap-south-1 (Mumbai) by default — set <span className="font-mono">AWS_DEPLOY_REGION</span> to change
+                it.
+              </p>
+            </div>
           )}
 
           {!loading && info && info.awsConfigured && (

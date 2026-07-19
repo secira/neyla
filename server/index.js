@@ -6,6 +6,7 @@ import workspaceRoutes from './routes/workspaces.js';
 import paymentRoutes from './routes/payments.js';
 import sandboxRoutes from './routes/sandbox.js';
 import deploymentRoutes from './routes/deployments.js';
+import { runMigrations } from './migrations/run.js';
 
 const app = express();
 const PORT = process.env.AUTH_SERVER_PORT || 3001;
@@ -28,6 +29,13 @@ app.use('/deployments', deploymentRoutes);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Auth server running on port ${PORT}`);
-});
+runMigrations()
+  .then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Auth server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('[migrations] Fatal error, server not starting:', err.message);
+    process.exit(1);
+  });
