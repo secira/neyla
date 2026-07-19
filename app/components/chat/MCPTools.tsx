@@ -45,6 +45,12 @@ export function McpTools() {
 
   const serverEntries = useMemo(() => Object.entries(serverTools), [serverTools]);
 
+  // Hide the MCP tools button entirely when no servers are configured —
+  // non-programmers should never see this developer feature by default.
+  if (!isInitialized || serverEntries.length === 0) {
+    return null;
+  }
+
   return (
     <div className="relative">
       <div className="flex">

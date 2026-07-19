@@ -33,6 +33,7 @@ import { ChatBox } from './ChatBox';
 import type { DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/Inspector';
 import LlmErrorAlert from './LLMApiAlert';
+import { curateModelList, curateProviderList } from '~/utils/curatedModels';
 import { DatabasePanel } from '~/components/workspace/DatabasePanel';
 import { SecretsPanel } from '~/components/workspace/SecretsPanel';
 import { ConfigPanel } from '~/components/workspace/ConfigPanel';
@@ -222,7 +223,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           .then((response) => response.json())
           .then((data) => {
             const typedData = data as { modelList: ModelInfo[] };
-            setModelList(typedData.modelList);
+            setModelList(curateModelList(typedData.modelList, getApiKeysFromCookies()));
           })
           .catch((error) => {
             console.error('Error fetching model list:', error);
@@ -253,7 +254,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       // Only update models for the specific provider
       setModelList((prevModels) => {
         const otherModels = prevModels.filter((model) => model.provider !== providerName);
-        return [...otherModels, ...providerModels];
+        return [...otherModels, ...curateModelList(providerModels, newApiKeys)];
       });
       setIsModelLoading(undefined);
     };
@@ -414,6 +415,31 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 <p className="text-base lg:text-lg mb-8 text-bolt-elements-textSecondary animate-fade-in animation-delay-200 max-w-xl mx-auto leading-relaxed">
                   Create stunning websites, apps, and prototypes in seconds. No coding skills needed — just your ideas.
                 </p>
+                {/* How it works: describe → preview → publish */}
+                <div className="flex flex-col sm:flex-row items-stretch justify-center gap-3 mb-10 animate-fade-in animation-delay-200 max-w-2xl mx-auto">
+                  {[
+                    { icon: 'i-ph:chat-teardrop-text', step: '1', title: 'Describe', text: 'Tell Neyla what you want to build, in your own words' },
+                    { icon: 'i-ph:eye', step: '2', title: 'Preview', text: 'Watch your app come to life instantly in the browser' },
+                    { icon: 'i-ph:rocket-launch', step: '3', title: 'Publish', text: 'Put it online with one click and share the link' },
+                  ].map((item) => (
+                    <div
+                      key={item.step}
+                      className="flex-1 flex flex-col items-center gap-1.5 rounded-xl border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2/60 px-4 py-3 text-center"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold text-white"
+                          style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 100%)' }}
+                        >
+                          {item.step}
+                        </span>
+                        <span className={`${item.icon} text-lg`} style={{ color: '#FF6B2B' }} />
+                        <span className="text-sm font-semibold text-bolt-elements-textPrimary">{item.title}</span>
+                      </div>
+                      <p className="text-xs text-bolt-elements-textSecondary leading-relaxed">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             <StickToBottom
@@ -487,7 +513,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
                   provider={provider}
                   setProvider={setProvider}
-                  providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
+                  providerList={curateProviderList(providerList || (PROVIDER_LIST as ProviderInfo[]), apiKeys)}
                   model={model}
                   setModel={setModel}
                   modelList={modelList}

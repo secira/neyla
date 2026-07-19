@@ -26,13 +26,13 @@ export default function LlmErrorAlert({ alert, clearAlert }: Props) {
   const getErrorMessage = () => {
     switch (errorType) {
       case 'authentication':
-        return `Authentication failed with ${provider}. Please check your API key.`;
+        return `We couldn't connect to the AI service (${provider}). If you added your own API key in Settings → AI Providers, please double-check it.`;
       case 'rate_limit':
-        return `Rate limit exceeded for ${provider}. Please wait before retrying.`;
+        return 'The AI service is a bit busy right now. Please wait a moment and try sending your message again.';
       case 'quota':
-        return `Quota exceeded for ${provider}. Please check your account limits.`;
+        return `The usage limit for ${provider} has been reached. Try again later, or add your own API key in Settings → AI Providers.`;
       default:
-        return 'An error occurred while processing your request.';
+        return 'Something went wrong while generating a response. Please try sending your message again.';
     }
   };
 
@@ -74,9 +74,14 @@ export default function LlmErrorAlert({ alert, clearAlert }: Props) {
               <p>{getErrorMessage()}</p>
 
               {description && (
-                <div className="text-xs text-bolt-elements-textSecondary p-2 bg-bolt-elements-background-depth-3 rounded mt-4 mb-4">
-                  Error Details: {description}
-                </div>
+                <details className="mt-3 mb-2">
+                  <summary className="text-xs text-bolt-elements-textTertiary cursor-pointer hover:text-bolt-elements-textSecondary">
+                    Show technical details
+                  </summary>
+                  <div className="text-xs text-bolt-elements-textSecondary p-2 bg-bolt-elements-background-depth-3 rounded mt-2">
+                    {description}
+                  </div>
+                </details>
               )}
             </motion.div>
 

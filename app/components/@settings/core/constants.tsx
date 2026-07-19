@@ -61,7 +61,7 @@ export const TAB_LABELS: Record<TabType, string> = {
   notifications: 'Notifications',
   features: 'Features',
   data: 'Data Management',
-  'cloud-providers': 'Cloud Providers',
+  'cloud-providers': 'AI Providers (Advanced)',
   'local-providers': 'Local Providers',
   github: 'GitHub',
   gitlab: 'GitLab',
@@ -78,7 +78,7 @@ export const TAB_DESCRIPTIONS: Record<TabType, string> = {
   notifications: 'View and manage your notifications',
   features: 'Explore new and upcoming features',
   data: 'Manage your data and storage',
-  'cloud-providers': 'Configure cloud AI providers and models',
+  'cloud-providers': 'Advanced: add your own AI keys to use a different AI service',
   'local-providers': 'Configure local AI providers and models',
   github: 'Connect and manage GitHub integration',
   gitlab: 'Connect and manage GitLab integration',
@@ -89,20 +89,29 @@ export const TAB_DESCRIPTIONS: Record<TabType, string> = {
   mcp: 'Configure MCP (Model Context Protocol) servers',
 };
 
+/*
+ * Tabs a non-programmer actually needs: account (profile), appearance
+ * (settings), data, and an "Advanced" area for AI provider keys.
+ * Everything else is developer tooling and stays hidden.
+ */
+export const ALLOWED_USER_TABS: TabType[] = ['profile', 'settings', 'data', 'cloud-providers'];
+
 export const DEFAULT_TAB_CONFIG = [
   // User Window Tabs (Always visible by default)
-  { id: 'features', visible: true, window: 'user' as const, order: 0 },
-  { id: 'data', visible: true, window: 'user' as const, order: 1 },
-  { id: 'cloud-providers', visible: true, window: 'user' as const, order: 2 },
-  { id: 'local-providers', visible: true, window: 'user' as const, order: 3 },
-  { id: 'github', visible: true, window: 'user' as const, order: 4 },
-  { id: 'gitlab', visible: true, window: 'user' as const, order: 5 },
-  { id: 'netlify', visible: true, window: 'user' as const, order: 6 },
-  { id: 'vercel', visible: true, window: 'user' as const, order: 7 },
-  { id: 'supabase', visible: true, window: 'user' as const, order: 8 },
-  { id: 'notifications', visible: true, window: 'user' as const, order: 9 },
-  { id: 'event-logs', visible: true, window: 'user' as const, order: 10 },
-  { id: 'mcp', visible: true, window: 'user' as const, order: 11 },
+  { id: 'profile', visible: true, window: 'user' as const, order: 0 },
+  { id: 'settings', visible: true, window: 'user' as const, order: 1 },
+  { id: 'data', visible: true, window: 'user' as const, order: 2 },
+  { id: 'cloud-providers', visible: true, window: 'user' as const, order: 3 },
 
-  // User Window Tabs (In dropdown, initially hidden)
+  // Developer-oriented tabs — hidden for the simplified Neyla experience
+  { id: 'features', visible: false, window: 'user' as const, order: 4 },
+  { id: 'local-providers', visible: false, window: 'user' as const, order: 5 },
+  { id: 'github', visible: false, window: 'user' as const, order: 6 },
+  { id: 'gitlab', visible: false, window: 'user' as const, order: 7 },
+  { id: 'netlify', visible: false, window: 'user' as const, order: 8 },
+  { id: 'vercel', visible: false, window: 'user' as const, order: 9 },
+  { id: 'supabase', visible: false, window: 'user' as const, order: 10 },
+  { id: 'notifications', visible: false, window: 'user' as const, order: 11 },
+  { id: 'event-logs', visible: false, window: 'user' as const, order: 12 },
+  { id: 'mcp', visible: false, window: 'user' as const, order: 13 },
 ];

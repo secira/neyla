@@ -12,10 +12,10 @@ export default function ChatAlert({ alert, clearAlert, postMessage }: Props) {
   const { description, content, source } = alert;
 
   const isPreview = source === 'preview';
-  const title = isPreview ? 'Preview Error' : 'Terminal Error';
+  const title = 'Something went wrong';
   const message = isPreview
-    ? 'We encountered an error while running the preview. Would you like Bolt to analyze and help resolve this issue?'
-    : 'We encountered an error while running terminal commands. Would you like Bolt to analyze and help resolve this issue?';
+    ? 'Your app preview hit a snag. Neyla can look at the problem and fix it for you automatically.'
+    : 'Something went wrong while setting up your app. Neyla can look at the problem and fix it for you automatically.';
 
   return (
     <AnimatePresence>
@@ -54,9 +54,14 @@ export default function ChatAlert({ alert, clearAlert, postMessage }: Props) {
             >
               <p>{message}</p>
               {description && (
-                <div className="text-xs text-bolt-elements-textSecondary p-2 bg-bolt-elements-background-depth-3 rounded mt-4 mb-4">
-                  Error: {description}
-                </div>
+                <details className="mt-3 mb-2">
+                  <summary className="text-xs text-bolt-elements-textTertiary cursor-pointer hover:text-bolt-elements-textSecondary">
+                    Show technical details
+                  </summary>
+                  <div className="text-xs text-bolt-elements-textSecondary p-2 bg-bolt-elements-background-depth-3 rounded mt-2">
+                    {description}
+                  </div>
+                </details>
               )}
             </motion.div>
 
@@ -83,8 +88,8 @@ export default function ChatAlert({ alert, clearAlert, postMessage }: Props) {
                     'flex items-center gap-1.5',
                   )}
                 >
-                  <div className="i-ph:chat-circle-duotone"></div>
-                  Ask Bolt
+                  <div className="i-ph:magic-wand"></div>
+                  Fix it for me
                 </button>
                 <button
                   onClick={clearAlert}
