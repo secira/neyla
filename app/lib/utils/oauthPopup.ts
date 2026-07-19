@@ -121,5 +121,5 @@ export const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_failed: 'Google login failed. Please try again.',
   github_token_failed: 'GitHub login failed. Please try again.',
   github_failed: 'GitHub login failed. Please try again.',
-  github_already_linked: 'This GitHub account is already linked to a different Skech account.',
+  github_already_linked: 'This GitHub account is already linked to a different Neyla account.',
 };

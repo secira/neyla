@@ -3,7 +3,7 @@ import { Header } from '~/components/header/Header';
 import { Footer } from '~/components/layout/Footer';
 
 export const meta: MetaFunction = () => [
-  { title: 'Features — Skech' },
+  { title: 'Features — Neyla' },
   { name: 'description', content: 'Everything you need to build full-stack apps and websites with AI — instantly.' },
 ];
 
@@ -13,7 +13,7 @@ const features = [
     gradient: 'from-violet-500 to-purple-600',
     title: 'AI-Powered Code Generation',
     description:
-      'Describe what you want in plain English. Skech generates production-quality code across React, Next.js, Vue, Svelte, and more — instantly.',
+      'Describe what you want in plain English. Neyla generates production-quality code across React, Next.js, Vue, Svelte, and more — instantly.',
     bullets: ['Natural language to code', 'Context-aware edits', 'Multi-file projects'],
   },
   {
@@ -111,7 +111,7 @@ export default function FeaturesPage() {
               </span>
             </h1>
             <p className="text-xl text-gray-500 dark:text-gray-400 leading-relaxed max-w-2xl mx-auto mb-10">
-              From a blank canvas to a deployed app — Skech handles the heavy lifting so you can focus on what matters.
+              From a blank canvas to a deployed app — Neyla handles the heavy lifting so you can focus on what matters.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a
@@ -201,7 +201,7 @@ export default function FeaturesPage() {
               </span>
             </h2>
             <p className="text-gray-400 text-lg mb-10">
-              Join thousands of builders already using Skech to turn ideas into products.
+              Join thousands of builders already using Neyla to turn ideas into products.
             </p>
             <a
               href="/signup"

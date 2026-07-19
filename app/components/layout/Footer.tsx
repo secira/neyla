@@ -26,7 +26,7 @@ export function Footer() {
         { label: 'About', href: '#' },
         { label: 'Careers', href: '#' },
         { label: 'Press', href: '#' },
-        { label: 'Contact', href: 'mailto:hello@skech.ai' },
+        { label: 'Contact', href: 'mailto:hello@neyla.ai' },
       ],
     },
     {
@@ -62,7 +62,7 @@ export function Footer() {
                   backgroundClip: 'text',
                 }}
               >
-                Skech
+                Neyla
               </span>
               <span className="text-[10px] font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 px-1.5 py-0.5 rounded-full leading-none mb-1">
                 beta
@@ -70,7 +70,7 @@ export function Footer() {
             </a>
 
             <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs leading-relaxed">
-              Build websites and SaaS apps with AI — describe what you want, and Skech builds it instantly.
+              Build websites and SaaS apps with AI — describe what you want, and Neyla builds it instantly.
             </p>
 
             <div className="flex items-center gap-3 mt-1">
@@ -131,7 +131,7 @@ export function Footer() {
 
         <div className="py-6 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-gray-400 dark:text-gray-600">
-            © {currentYear} Skech. All rights reserved. Made with ❤️ in India.
+            © {currentYear} Neyla. All rights reserved. Made with ❤️ in India.
           </p>
           <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-600">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />

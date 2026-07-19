@@ -124,7 +124,7 @@ export default function Login() {
               backgroundClip: 'text',
             }}
           >
-            Skech
+            Neyla
           </span>
         </Link>
       </div>
@@ -133,7 +133,7 @@ export default function Login() {
         <div className="w-full max-w-md">
           <div className="bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor rounded-2xl p-8 shadow-xl">
             <h1 className="text-2xl font-bold text-bolt-elements-textPrimary mb-1">Welcome back</h1>
-            <p className="text-bolt-elements-textSecondary text-sm mb-6">Sign in to your Skech account</p>
+            <p className="text-bolt-elements-textSecondary text-sm mb-6">Sign in to your Neyla account</p>
 
             {error && (
               <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">

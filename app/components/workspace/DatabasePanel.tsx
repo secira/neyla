@@ -79,7 +79,7 @@ export function DatabasePanel() {
             <p className="text-xs text-bolt-elements-textTertiary font-mono truncate">{connectionUrl || 'postgresql://...'}</p>
           </div>
           <div className="p-3 rounded-lg bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor text-center">
-            <p className="text-xs text-bolt-elements-textTertiary">Ask Skech to query your database in the chat</p>
+            <p className="text-xs text-bolt-elements-textTertiary">Ask Neyla to query your database in the chat</p>
           </div>
           <button
             onClick={() => { setConnected(false); setConnectionUrl(''); }}

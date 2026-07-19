@@ -107,7 +107,7 @@ export default function Signup() {
               backgroundClip: 'text',
             }}
           >
-            Skech
+            Neyla
           </span>
         </Link>
       </div>

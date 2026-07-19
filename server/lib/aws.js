@@ -10,7 +10,7 @@ import {
 } from '@aws-sdk/client-ec2';
 
 const REGION = process.env.AWS_DEPLOY_REGION || 'ap-south-1';
-const SECURITY_GROUP_NAME = 'skech-deploy';
+const SECURITY_GROUP_NAME = 'neyla-deploy';
 const INSTANCE_TYPE = process.env.AWS_DEPLOY_INSTANCE_TYPE || 't3.micro';
 
 let client = null;
@@ -88,7 +88,7 @@ async function ensureSecurityGroup() {
   const created = await ec2.send(
     new CreateSecurityGroupCommand({
       GroupName: SECURITY_GROUP_NAME,
-      Description: 'Skech published apps (HTTP)',
+      Description: 'Neyla published apps (HTTP)',
       VpcId: vpcId,
     }),
   );
@@ -127,7 +127,7 @@ export async function launchInstance({ name, userData }) {
           ResourceType: 'instance',
           Tags: [
             { Key: 'Name', Value: name },
-            { Key: 'skech', Value: 'true' },
+            { Key: 'neyla', Value: 'true' },
           ],
         },
       ],

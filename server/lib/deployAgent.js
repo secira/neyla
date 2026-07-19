@@ -7,7 +7,7 @@ import path from 'node:path';
 const BASE = process.env.SKECH_SERVER_BASE;
 const TOKEN = process.env.SKECH_AGENT_TOKEN;
 const DEPLOYMENT_ID = process.env.SKECH_DEPLOYMENT_ID;
-const APP_DIR = '/opt/skech/app';
+const APP_DIR = '/opt/neyla/app';
 const POLL_INTERVAL = 10000;
 
 let currentVersion = 0;
@@ -165,11 +165,11 @@ export function buildUserData({ serverBase, deploymentId, agentToken }) {
   return `#!/bin/bash
 set -x
 dnf install -y nodejs npm
-mkdir -p /opt/skech
-echo '${agentB64}' | base64 -d > /opt/skech/agent.mjs
-cat > /etc/systemd/system/skech-agent.service <<'UNIT'
+mkdir -p /opt/neyla
+echo '${agentB64}' | base64 -d > /opt/neyla/agent.mjs
+cat > /etc/systemd/system/neyla-agent.service <<'UNIT'
 [Unit]
-Description=Skech deploy agent
+Description=Neyla deploy agent
 After=network-online.target
 Wants=network-online.target
 
@@ -177,7 +177,7 @@ Wants=network-online.target
 Environment=SKECH_SERVER_BASE=${serverBase}
 Environment=SKECH_AGENT_TOKEN=${agentToken}
 Environment=SKECH_DEPLOYMENT_ID=${deploymentId}
-ExecStart=/usr/bin/node /opt/skech/agent.mjs
+ExecStart=/usr/bin/node /opt/neyla/agent.mjs
 Restart=always
 RestartSec=5
 
@@ -185,6 +185,6 @@ RestartSec=5
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
-systemctl enable --now skech-agent
+systemctl enable --now neyla-agent
 `;
 }

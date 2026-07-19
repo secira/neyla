@@ -32,7 +32,7 @@ export function Header() {
                 backgroundClip: 'text',
               }}
             >
-              Skech
+              Neyla
             </span>
             <span className="text-[10px] font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 px-1.5 py-0.5 rounded-full leading-none mb-1">
               beta

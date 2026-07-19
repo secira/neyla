@@ -48,7 +48,7 @@ async function setStatus(deploymentId, status, { detail = null, error = null, ex
 async function provisionInFlight(deployment) {
   try {
     const instanceId = await launchInstance({
-      name: `skech-${deployment.id.slice(0, 8)}`,
+      name: `neyla-${deployment.id.slice(0, 8)}`,
       userData: buildUserData({
         serverBase: getServerBase(),
         deploymentId: deployment.id,

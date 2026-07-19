@@ -50,7 +50,7 @@ router.post('/signup', async (req, res) => {
 
     const token = signToken(user);
 
-    res.cookie('skech_token', token, COOKIE_OPTIONS);
+    res.cookie('neyla_token', token, COOKIE_OPTIONS);
     return res.status(201).json({ user, token });
   } catch (err) {
     console.error('Signup error:', err);
@@ -90,7 +90,7 @@ router.post('/login', async (req, res) => {
     const { password_hash: _ph, ...safeUser } = user;
     const token = signToken(safeUser);
 
-    res.cookie('skech_token', token, COOKIE_OPTIONS);
+    res.cookie('neyla_token', token, COOKIE_OPTIONS);
     return res.json({ user: safeUser, token });
   } catch (err) {
     console.error('Login error:', err);
@@ -99,7 +99,7 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/logout', (_req, res) => {
-  res.clearCookie('skech_token', { path: '/' });
+  res.clearCookie('neyla_token', { path: '/' });
   return res.json({ success: true });
 });
 
@@ -243,7 +243,7 @@ router.get('/google/callback', async (req, res) => {
     const user = userResult.rows[0];
     const token = signToken(user);
 
-    res.cookie('skech_token', token, COOKIE_OPTIONS);
+    res.cookie('neyla_token', token, COOKIE_OPTIONS);
     return res.redirect('/auth/popup-success');
   } catch (err) {
     console.error('Google OAuth error:', err);
@@ -320,7 +320,7 @@ router.get('/github/callback', async (req, res) => {
     // their existing account instead of creating/logging into a separate one.
     let linkedUserId = null;
 
-    const existingSession = req.cookies?.skech_token;
+    const existingSession = req.cookies?.neyla_token;
 
     if (existingSession) {
       try {
@@ -397,7 +397,7 @@ router.get('/github/callback', async (req, res) => {
     const user = userResult.rows[0];
     const token = signToken(user);
 
-    res.cookie('skech_token', token, COOKIE_OPTIONS);
+    res.cookie('neyla_token', token, COOKIE_OPTIONS);
     return res.redirect('/auth/popup-success');
   } catch (err) {
     console.error('GitHub OAuth error:', err);

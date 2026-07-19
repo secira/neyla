@@ -1,9 +1,9 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'skech-dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'neyla-dev-secret-change-in-production';
 
 export function requireAuth(req, res, next) {
-  const token = req.cookies?.skech_token || req.headers.authorization?.replace('Bearer ', '');
+  const token = req.cookies?.neyla_token || req.headers.authorization?.replace('Bearer ', '');
 
   if (!token) {
     return res.status(401).json({ error: 'Not authenticated' });

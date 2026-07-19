@@ -3,8 +3,8 @@ import { Header } from '~/components/header/Header';
 import { Footer } from '~/components/layout/Footer';
 
 export const meta: MetaFunction = () => [
-  { title: 'Examples — Skech' },
-  { name: 'description', content: 'See what people are building with Skech. Get inspired and start your own project.' },
+  { title: 'Examples — Neyla' },
+  { name: 'description', content: 'See what people are building with Neyla. Get inspired and start your own project.' },
 ];
 
 const categories = ['All', 'Landing Page', 'SaaS', 'E-commerce', 'Dashboard', 'Portfolio', 'API'];
@@ -146,7 +146,7 @@ export default function ExamplesPage() {
               </span>
             </h1>
             <p className="text-xl text-gray-500 dark:text-gray-400 leading-relaxed">
-              Real projects, built with Skech. Click any example to open it and start customising.
+              Real projects, built with Neyla. Click any example to open it and start customising.
             </p>
           </div>
         </section>

@@ -255,7 +255,7 @@ router.post('/:id/github-sync', async (req, res) => {
           name: repoName,
           private: true,
           auto_init: true,
-          description: workspace.description || 'Created with Skech',
+          description: workspace.description || 'Created with Neyla',
         }),
       });
 
@@ -292,11 +292,11 @@ router.post('/:id/github-sync', async (req, res) => {
     // Existing repo with no commits yet (empty repo): bootstrap it with an
     // initial commit via the Contents API so the Git Data flow below works.
     if (!headSha) {
-      const bootstrapRes = await ghFetch(token, `/repos/${owner}/${repoName}/contents/.skech`, {
+      const bootstrapRes = await ghFetch(token, `/repos/${owner}/${repoName}/contents/.neyla`, {
         method: 'PUT',
         body: JSON.stringify({
-          message: 'Initialize repository (Skech)',
-          content: Buffer.from('Created with Skech\n', 'utf8').toString('base64'),
+          message: 'Initialize repository (Neyla)',
+          content: Buffer.from('Created with Neyla\n', 'utf8').toString('base64'),
           branch,
         }),
       });
@@ -349,7 +349,7 @@ router.post('/:id/github-sync', async (req, res) => {
     const commitRes = await ghFetch(token, `/repos/${owner}/${repoName}/git/commits`, {
       method: 'POST',
       body: JSON.stringify({
-        message: commitMessage || `Sync from Skech — ${new Date().toISOString()}`,
+        message: commitMessage || `Sync from Neyla — ${new Date().toISOString()}`,
         tree: treeRes.data.sha,
         parents: [headSha],
       }),

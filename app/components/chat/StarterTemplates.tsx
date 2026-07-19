@@ -55,7 +55,7 @@ const StarterTemplates: React.FC = () => {
           ))}
         </div>
         <p className="text-xs text-bolt-elements-textTertiary text-center">
-          <span className="font-semibold text-bolt-elements-textSecondary">1,000+</span> developers building with Skech today
+          <span className="font-semibold text-bolt-elements-textSecondary">1,000+</span> developers building with Neyla today
         </p>
         <p className="text-[10px] text-bolt-elements-textTertiary">
           Tamil · Hindi · Telugu support coming soon 🇮🇳

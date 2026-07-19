@@ -1,4 +1,4 @@
-const SkechBackground = () => {
+const NeylaBackground = () => {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
       {/* Warm top-left blob */}
@@ -55,4 +55,4 @@ const SkechBackground = () => {
   );
 };
 
-export default SkechBackground;
+export default NeylaBackground;

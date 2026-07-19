@@ -123,7 +123,7 @@ export default function PricingPage() {
         key: orderData.key_id,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: 'Skech',
+        name: 'Neyla',
         description: `${plan.name} Plan — ${plan.price}/month`,
         image: '/logo.png',
         order_id: orderData.order_id,

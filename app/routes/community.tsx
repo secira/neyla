@@ -3,8 +3,8 @@ import { Header } from '~/components/header/Header';
 import { Footer } from '~/components/layout/Footer';
 
 export const meta: MetaFunction = () => [
-  { title: 'Community — Skech' },
-  { name: 'description', content: 'Join the Skech community — share what you build, get help, and connect with fellow builders.' },
+  { title: 'Community — Neyla' },
+  { name: 'description', content: 'Join the Neyla community — share what you build, get help, and connect with fellow builders.' },
 ];
 
 const stats = [
@@ -27,7 +27,7 @@ const channels = [
   {
     icon: 'i-ph:github-logo-fill',
     name: 'GitHub',
-    description: 'Skech is open source. Star the repo, file issues, submit PRs, and help shape the product.',
+    description: 'Neyla is open source. Star the repo, file issues, submit PRs, and help shape the product.',
     cta: 'View on GitHub',
     href: 'https://github.com',
     gradient: 'from-gray-700 to-gray-900',
@@ -37,7 +37,7 @@ const channels = [
     icon: 'i-ph:twitter-logo-fill',
     name: 'Twitter / X',
     description: 'Follow for product updates, builder spotlights, and AI tips. Tag us in your builds!',
-    cta: 'Follow @SkechAI',
+    cta: 'Follow @NeylaAI',
     href: 'https://twitter.com',
     gradient: 'from-sky-500 to-blue-600',
     color: '#1DA1F2',
@@ -103,8 +103,8 @@ const showcaseItems = [
 
 const faqs = [
   {
-    q: 'Is Skech open source?',
-    a: 'Yes! The core Skech platform is open source and available on GitHub. We welcome contributions, bug reports, and feature requests from the community.',
+    q: 'Is Neyla open source?',
+    a: 'Yes! The core Neyla platform is open source and available on GitHub. We welcome contributions, bug reports, and feature requests from the community.',
   },
   {
     q: 'Where can I ask for help?',

@@ -185,12 +185,12 @@ export default function InvoicesPage() {
                             `  ${user?.name || user?.email}`,
                             `  ${user?.email}`,
                             ``,
-                            `Description: Skech ${invoice.plan.charAt(0).toUpperCase() + invoice.plan.slice(1)} Plan`,
+                            `Description: Neyla ${invoice.plan.charAt(0).toUpperCase() + invoice.plan.slice(1)} Plan`,
                             `Amount:      ${formatAmount(invoice.amount, invoice.currency)}`,
                             `Status:      ${invoice.status.toUpperCase()}`,
                             `Payment ID:  ${invoice.razorpay_payment_id}`,
                             ``,
-                            'Thank you for using Skech!',
+                            'Thank you for using Neyla!',
                           ].join('\n');
 
                           const blob = new Blob([content], { type: 'text/plain' });
@@ -217,8 +217,8 @@ export default function InvoicesPage() {
         <div className="mt-6 p-4 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
           <p className="text-xs text-gray-400 dark:text-gray-500">
             Need help with billing? Email us at{' '}
-            <a href="mailto:billing@skech.dev" className="text-orange-500 hover:underline">
-              billing@skech.dev
+            <a href="mailto:billing@neyla.dev" className="text-orange-500 hover:underline">
+              billing@neyla.dev
             </a>
           </p>
         </div>

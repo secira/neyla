@@ -23,7 +23,7 @@ function slugify(value: string): string {
       .toLowerCase()
       .replace(/[^a-z0-9._-]+/g, '-')
       .replace(/^-+|-+$/g, '')
-      .slice(0, 90) || 'skech-project'
+      .slice(0, 90) || 'neyla-project'
   );
 }
 
@@ -110,7 +110,7 @@ export function SyncToGitHubButton() {
       }
     }
 
-    setRepoName(prefill || slugify(description.get() || 'skech-project'));
+    setRepoName(prefill || slugify(description.get() || 'neyla-project'));
     setPhase('form');
   };
 
@@ -195,7 +195,7 @@ export function SyncToGitHubButton() {
         body: JSON.stringify({
           repoName: repoName.trim(),
           files: payloadFiles,
-          commitMessage: `Sync from Skech: ${description.get() || 'project update'}`,
+          commitMessage: `Sync from Neyla: ${description.get() || 'project update'}`,
         }),
       });
 
@@ -260,11 +260,11 @@ export function SyncToGitHubButton() {
 
           {(phase === 'form' || phase === 'syncing') && (
             <div className="flex flex-col gap-3">
-              <label className="text-xs text-bolt-elements-textSecondary" htmlFor="skech-repo-name">
+              <label className="text-xs text-bolt-elements-textSecondary" htmlFor="neyla-repo-name">
                 Repository name{status?.username ? ` (github.com/${status.username})` : ''}
               </label>
               <input
-                id="skech-repo-name"
+                id="neyla-repo-name"
                 value={repoName}
                 onChange={(e) => setRepoName(e.target.value)}
                 disabled={phase === 'syncing'}

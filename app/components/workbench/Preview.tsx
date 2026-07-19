@@ -1044,7 +1044,7 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
                     <span className="text-white text-3xl font-black tracking-tight">S</span>
                   </div>
                   <p className="text-lg font-semibold text-bolt-elements-textSecondary mb-1">Your preview will appear here</p>
-                  <p className="text-sm text-bolt-elements-textTertiary">Ask Skech to build something to get started</p>
+                  <p className="text-sm text-bolt-elements-textTertiary">Ask Neyla to build something to get started</p>
                 </>
               )}
             </div>
