@@ -3,6 +3,7 @@ import { useStore } from '@nanostores/react';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { DeployButton } from '~/components/deploy/DeployButton';
 import { SyncToGitHubButton } from './SyncToGitHubButton.client';
+import { PublishButton } from './PublishButton.client';
 
 interface HeaderActionButtonsProps {
   chatStarted: boolean;
@@ -19,6 +20,9 @@ export function HeaderActionButtons({ chatStarted: _chatStarted }: HeaderActionB
     <div className="flex items-center gap-1">
       {/* Sync to GitHub */}
       {shouldShowButtons && <SyncToGitHubButton />}
+
+      {/* Publish to EC2 */}
+      {shouldShowButtons && <PublishButton />}
 
       {/* Deploy Button */}
       {shouldShowButtons && <DeployButton />}
