@@ -5,6 +5,7 @@ import { classNames } from '~/utils/classNames';
 import { HeaderActionButtons } from './HeaderActionButtons.client';
 import { ChatDescription } from '~/lib/persistence/ChatDescription.client';
 import { HeaderUserMenu } from './HeaderUserMenu.client';
+import { toggleSidebar } from '~/lib/stores/sidebar';
 
 export function Header() {
   const chat = useStore(chatStore);
@@ -19,8 +20,15 @@ export function Header() {
         },
       )}
     >
-      <div className="flex items-center gap-2 z-logo cursor-pointer">
-        <div className="i-ph:sidebar-simple-duotone text-xl text-bolt-elements-textSecondary" />
+      <div className="flex items-center gap-2 z-logo">
+        <button
+          onClick={toggleSidebar}
+          className="p-1.5 rounded-lg hover:bg-bolt-elements-background-depth-3 transition-colors"
+          aria-label="Toggle project history"
+          title="My Projects"
+        >
+          <div className="i-ph:sidebar-simple-duotone text-xl text-bolt-elements-textSecondary" />
+        </button>
         <a href="/" className="flex items-center gap-1.5">
           <div className="flex items-center gap-0.5">
             <span

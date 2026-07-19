@@ -199,6 +199,35 @@ export async function listUserWorkspaces(): Promise<
   return data.workspaces || [];
 }
 
+export async function deleteWorkspaceFromServer(urlId: string): Promise<void> {
+  if (!isLoggedIn()) {
+    return;
+  }
+
+  const workspaceId = syncCache[urlId] || null;
+
+  if (!workspaceId) {
+    const listRes = await fetchAPI('', 'GET');
+
+    if (!listRes || !listRes.ok) {
+      return;
+    }
+
+    const data = await listRes.json();
+    const workspace = (data.workspaces || []).find((w: any) => w.url_id === urlId);
+
+    if (!workspace) {
+      return;
+    }
+
+    await fetchAPI(`/${workspace.id}`, 'DELETE');
+    delete syncCache[urlId];
+  } else {
+    await fetchAPI(`/${workspaceId}`, 'DELETE');
+    delete syncCache[urlId];
+  }
+}
+
 export function clearSyncCache(): void {
   syncCache = {};
 }

@@ -37,6 +37,8 @@ import { curateModelList, curateProviderList } from '~/utils/curatedModels';
 import { DatabasePanel } from '~/components/workspace/DatabasePanel';
 import { SecretsPanel } from '~/components/workspace/SecretsPanel';
 import { ConfigPanel } from '~/components/workspace/ConfigPanel';
+import { authUserAtom } from '~/lib/stores/auth';
+import { listUserWorkspaces } from '~/lib/persistence/serverSync';
 
 const TEXTAREA_MIN_HEIGHT = 76;
 
@@ -142,6 +144,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
     const [activePanel, setActivePanel] = useState<'chat' | 'database' | 'secrets' | 'config'>('chat');
     const [apiKeys, setApiKeys] = useState<Record<string, string>>(getApiKeysFromCookies());
+    const authUser = useStore(authUserAtom);
+    const [recentProjects, setRecentProjects] = useState<Array<{ id: string; url_id: string; title: string; updated_at: string }>>([]);
     const [modelList, setModelList] = useState<ModelInfo[]>([]);
     const [isModelSettingsCollapsed, setIsModelSettingsCollapsed] = useState(false);
     const [isListening, setIsListening] = useState(false);
@@ -157,6 +161,14 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
         setQrModalOpen(true);
       }
     }, [expoUrl]);
+
+    useEffect(() => {
+      if (authUser && !chatStarted) {
+        listUserWorkspaces()
+          .then((list) => setRecentProjects(list.slice(0, 4)))
+          .catch(() => {});
+      }
+    }, [authUser, chatStarted]);
 
     useEffect(() => {
       if (data) {
@@ -415,6 +427,39 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 <p className="text-base lg:text-lg mb-8 text-bolt-elements-textSecondary animate-fade-in animation-delay-200 max-w-xl mx-auto leading-relaxed">
                   Create stunning websites, apps, and prototypes in seconds. No coding skills needed — just your ideas.
                 </p>
+                {/* Recent projects for logged-in users */}
+                {authUser && recentProjects.length > 0 && (
+                  <div className="mb-8 animate-fade-in animation-delay-200">
+                    <div className="flex items-center justify-between mb-3 max-w-2xl mx-auto">
+                      <span className="text-sm font-semibold text-bolt-elements-textSecondary flex items-center gap-1.5">
+                        <span className="i-ph:clock-clockwise text-base" />
+                        Continue where you left off
+                      </span>
+                      <a href="/projects" className="text-xs text-orange-500 hover:text-orange-400 transition-colors font-medium">
+                        View all →
+                      </a>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-2xl mx-auto">
+                      {recentProjects.map((ws) => (
+                        <a
+                          key={ws.id}
+                          href={`/chat/${ws.url_id}`}
+                          className="group flex flex-col rounded-xl border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 hover:border-orange-500/40 hover:shadow-md transition-all p-3 text-left"
+                        >
+                          <div
+                            className="flex items-center justify-center w-7 h-7 rounded-lg mb-2 shrink-0"
+                            style={{ background: 'linear-gradient(135deg, rgba(255,107,43,0.15) 0%, rgba(255,60,172,0.15) 100%)' }}
+                          >
+                            <span className="i-ph:code-block text-sm" style={{ color: '#FF6B2B' }} />
+                          </div>
+                          <p className="text-xs font-medium text-bolt-elements-textPrimary truncate leading-snug">
+                            {ws.title || 'Untitled'}
+                          </p>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {/* How it works: describe → preview → publish */}
                 <div className="flex flex-col sm:flex-row items-stretch justify-center gap-3 mb-10 animate-fade-in animation-delay-200 max-w-2xl mx-auto">
                   {[

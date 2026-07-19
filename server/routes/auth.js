@@ -405,6 +405,41 @@ router.get('/github/callback', async (req, res) => {
   }
 });
 
+router.get('/settings', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
+
+    if (result.rows.length === 0) {
+      return res.json({ settings: {} });
+    }
+
+    return res.json({ settings: result.rows[0].settings || {} });
+  } catch (err) {
+    console.error('Get settings error:', err);
+    return res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+router.put('/settings', requireAuth, async (req, res) => {
+  try {
+    const { settings } = req.body;
+
+    if (!settings || typeof settings !== 'object') {
+      return res.status(400).json({ error: 'Settings must be an object' });
+    }
+
+    await pool.query(
+      'UPDATE users SET settings = $1 WHERE id = $2',
+      [JSON.stringify(settings), req.user.id],
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Update settings error:', err);
+    return res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
 router.get('/github/status', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(

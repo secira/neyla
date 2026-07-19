@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { Dialog, DialogButton, DialogDescription, DialogRoot, DialogTitle } from '~/components/ui/Dialog';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
 import { ControlPanel } from '~/components/@settings/core/ControlPanel';
-import { SettingsButton, HelpButton } from '~/components/ui/SettingsButton';
+import { SettingsButton } from '~/components/ui/SettingsButton';
 import { Button } from '~/components/ui/Button';
 import { db, deleteById, getAll, chatId, type ChatHistoryItem, useChatHistory } from '~/lib/persistence';
 import { cubicEasingFn } from '~/utils/easings';
@@ -14,6 +14,9 @@ import { useSearchFilter } from '~/lib/hooks/useSearchFilter';
 import { classNames } from '~/utils/classNames';
 import { useStore } from '@nanostores/react';
 import { profileStore } from '~/lib/stores/profile';
+import { authUserAtom } from '~/lib/stores/auth';
+import { deleteWorkspaceFromServer } from '~/lib/persistence/serverSync';
+import { sidebarOpenAtom, closeSidebar } from '~/lib/stores/sidebar';
 
 const menuVariants = {
   closed: {
@@ -67,10 +70,13 @@ export const Menu = () => {
   const { duplicateCurrentChat, exportChat } = useChatHistory();
   const menuRef = useRef<HTMLDivElement>(null);
   const [list, setList] = useState<ChatHistoryItem[]>([]);
-  const [open, setOpen] = useState(false);
+  const sidebarPinned = useStore(sidebarOpenAtom);
+  const [hoverOpen, setHoverOpen] = useState(false);
+  const open = sidebarPinned || hoverOpen;
   const [dialogContent, setDialogContent] = useState<DialogContent>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const profile = useStore(profileStore);
+  const authUser = useStore(authUserAtom);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
 
@@ -94,20 +100,28 @@ export const Menu = () => {
         throw new Error('Database not available');
       }
 
+      // Find urlId before deleting (needed for server sync)
+      const urlId = list.find((item) => item.id === id)?.urlId;
+
       // Delete chat snapshot from localStorage
       try {
         const snapshotKey = `snapshot:${id}`;
         localStorage.removeItem(snapshotKey);
-        console.log('Removed snapshot for chat:', id);
       } catch (snapshotError) {
         console.error(`Error deleting snapshot for chat ${id}:`, snapshotError);
       }
 
-      // Delete the chat from the database
+      // Delete from local IndexedDB
       await deleteById(db, id);
-      console.log('Successfully deleted chat:', id);
+
+      // Sync deletion to server (non-blocking, best-effort)
+      if (urlId) {
+        deleteWorkspaceFromServer(urlId).catch(() => {
+          // ignore server-side delete failures — local delete already happened
+        });
+      }
     },
-    [db],
+    [db, list],
   );
 
   const deleteItem = useCallback(
@@ -283,16 +297,16 @@ export const Menu = () => {
     const exitThreshold = 20;
 
     function onMouseMove(event: MouseEvent) {
-      if (isSettingsOpen) {
+      if (isSettingsOpen || sidebarPinned) {
         return;
       }
 
       if (event.pageX < enterThreshold) {
-        setOpen(true);
+        setHoverOpen(true);
       }
 
       if (menuRef.current && event.clientX > menuRef.current.getBoundingClientRect().right + exitThreshold) {
-        setOpen(false);
+        setHoverOpen(false);
       }
     }
 
@@ -301,7 +315,7 @@ export const Menu = () => {
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
     };
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, sidebarPinned]);
 
   const handleDuplicate = async (id: string) => {
     await duplicateCurrentChat(id);
@@ -310,7 +324,8 @@ export const Menu = () => {
 
   const handleSettingsClick = () => {
     setIsSettingsOpen(true);
-    setOpen(false);
+    setHoverOpen(false);
+    closeSidebar();
   };
 
   const handleSettingsClose = () => {
@@ -338,14 +353,31 @@ export const Menu = () => {
         )}
       >
         <div className="h-12 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 bg-gray-50/50 dark:bg-gray-900/50 rounded-tr-2xl">
-          <div className="text-gray-900 dark:text-white font-medium"></div>
-          <div className="flex items-center gap-3">
-            <HelpButton onClick={() => window.open('https://stackblitz-labs.github.io/bolt.diy/', '_blank')} />
-            <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
-              {profile?.username || 'Guest User'}
+          <span
+            className="text-base font-black tracking-tight"
+            style={{
+              background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 50%, #784BA0 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            Neyla
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm text-gray-900 dark:text-white truncate max-w-[120px]">
+              {authUser?.name || profile?.username || 'Guest'}
             </span>
-            <div className="flex items-center justify-center w-[32px] h-[32px] overflow-hidden bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-500 rounded-full shrink-0">
-              {profile?.avatar ? (
+            <div className="flex items-center justify-center w-[32px] h-[32px] overflow-hidden bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-500 rounded-full shrink-0 border border-gray-200 dark:border-gray-700">
+              {authUser?.avatar_url ? (
+                <img
+                  src={authUser.avatar_url}
+                  alt={authUser?.name || 'User'}
+                  className="w-full h-full object-cover"
+                  loading="eager"
+                  decoding="sync"
+                />
+              ) : profile?.avatar ? (
                 <img
                   src={profile.avatar}
                   alt={profile?.username || 'User'}
@@ -361,14 +393,26 @@ export const Menu = () => {
         </div>
         <CurrentDateTime />
         <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
+          {!authUser && (
+            <div className="mx-3 mt-3 p-3 rounded-lg border border-orange-500/20 bg-orange-500/5 text-xs text-orange-600 dark:text-orange-400">
+              <div className="flex items-center gap-1.5 font-semibold mb-1">
+                <div className="i-ph:cloud-slash text-sm" />
+                Projects not saved
+              </div>
+              <p className="text-orange-600/80 dark:text-orange-400/80">
+                <a href="/signup" className="underline font-medium">Sign up free</a> to keep your projects safe across all your devices.
+              </p>
+            </div>
+          )}
           <div className="p-4 space-y-3">
             <div className="flex gap-2">
               <a
                 href="/"
-                className="flex-1 flex gap-2 items-center bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-lg px-4 py-2 transition-colors"
+                className="flex-1 flex gap-2 items-center rounded-lg px-4 py-2 transition-colors text-white font-medium text-sm"
+                style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 100%)' }}
               >
                 <span className="inline-block i-ph:plus-circle h-4 w-4" />
-                <span className="text-sm font-medium">Start new chat</span>
+                <span className="text-sm font-medium">New Project</span>
               </a>
               <button
                 onClick={toggleSelectionMode}
@@ -397,7 +441,15 @@ export const Menu = () => {
             </div>
           </div>
           <div className="flex items-center justify-between text-sm px-4 py-2">
-            <div className="font-medium text-gray-600 dark:text-gray-400">Your Chats</div>
+            <div className="font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+              <div className="i-ph:folder-open text-sm" />
+              My Projects
+              {authUser && (
+                <a href="/projects" className="ml-1 text-xs text-orange-500 hover:text-orange-400 transition-colors" title="View all projects">
+                  View all
+                </a>
+              )}
+            </div>
             {selectionMode && (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={selectAll}>
@@ -417,7 +469,7 @@ export const Menu = () => {
           <div className="flex-1 overflow-auto px-3 pb-3">
             {filteredList.length === 0 && (
               <div className="px-4 text-gray-500 dark:text-gray-400 text-sm">
-                {list.length === 0 ? 'No previous conversations' : 'No matches found'}
+                {list.length === 0 ? 'No projects yet — start one!' : 'No matches found'}
               </div>
             )}
             <DialogRoot open={dialogContent !== null}>

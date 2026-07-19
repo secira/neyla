@@ -86,12 +86,20 @@ export function HeaderUserMenu() {
 
           <div className="py-1">
             <a
+              href="/projects"
+              className="flex items-center gap-2 px-4 py-2 text-sm text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              <div className="i-ph:squares-four text-base" />
+              My Projects
+            </a>
+            <a
               href="/"
               className="flex items-center gap-2 px-4 py-2 text-sm text-bolt-elements-textSecondary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 transition-colors"
               onClick={() => setOpen(false)}
             >
-              <div className="i-ph:house text-base" />
-              My Workspace
+              <div className="i-ph:plus-circle text-base" />
+              New Project
             </a>
             <a
               href="/pricing"

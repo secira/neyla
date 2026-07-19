@@ -1,0 +1,26 @@
+#4 - Product Polish for Non-Programmers
+What & Why
+The app inherits bolt.diy's developer-oriented UI: dead "Coming Soon" buttons, an overwhelming settings panel with 20+ AI providers, PAT-based connection forms, MCP tooling, and silent failure modes. For a Lovable-like product aimed at non-programmers, the interface needs to be simplified and every visible control must actually work.
+
+Done looks like
+No dead buttons or "Coming Soon" items in the main UI (remove or hide Cloudflare deploy, unused deploy targets, MCP tools when unconfigured)
+Settings reduced to what a non-programmer needs (account, appearance, optional advanced section for AI provider keys)
+Sensible defaults: a working AI provider preconfigured so new users can generate an app without touching settings
+Friendly error states: when generation, preview, or sync fails, the user sees a plain-language message with a retry action
+Landing/home page clearly walks a new user through: describe → preview → sync → publish
+Works cleanly on first load with no console-visible broken features
+Out of scope
+Auth, GitHub sync, EC2 deploy implementation (separate tasks)
+Tamil/Hindi/Telugu localization (future roadmap)
+Steps
+Audit and remove dead UI — Sweep header, deploy menu, settings tabs, and chat controls; remove or hide anything non-functional.
+Simplify settings — Restructure the settings dialog into a minimal set of tabs with an "Advanced" area for provider keys and developer options.
+Default AI provider experience — Ensure a default provider/model works out of the box and the model picker shows a curated short list with friendly names.
+Error and empty states — Replace silent failures and technical jargon with plain-language toasts/banners and retry actions across chat, preview, and sync.
+Onboarding home page — Tighten the home page hero and add a simple how-it-works strip aligned with the describe → preview → publish journey.
+Relevant files
+app/components/deploy/DeployButton.tsx
+app/components/@settings/core/ControlPanel.tsx
+app/components/chat/BaseChat.tsx
+app/routes/_index.tsx
+app/components/header/Header.tsx
