@@ -149,6 +149,250 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+const MAX_SYNC_FILES = 500;
+const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10 MB
+const REPO_NAME_RE = /^[A-Za-z0-9._-]{1,100}$/;
+
+async function ghFetch(token, path, options = {}) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+
+  let data = null;
+
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  return { status: res.status, ok: res.ok, data };
+}
+
+router.post('/:id/github-sync', async (req, res) => {
+  try {
+    const wsResult = await pool.query('SELECT * FROM workspaces WHERE id = $1 AND user_id = $2', [
+      req.params.id,
+      req.user.id,
+    ]);
+
+    if (wsResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Workspace not found' });
+    }
+
+    const workspace = wsResult.rows[0];
+
+    const { repoName, files, commitMessage } = req.body || {};
+
+    if (!repoName || !REPO_NAME_RE.test(repoName)) {
+      return res.status(400).json({
+        error: 'Repository name can only contain letters, numbers, dashes, dots and underscores',
+      });
+    }
+
+    if (!Array.isArray(files) || files.length === 0) {
+      return res.status(400).json({ error: 'No files to sync' });
+    }
+
+    if (files.length > MAX_SYNC_FILES) {
+      return res.status(400).json({ error: `Too many files (max ${MAX_SYNC_FILES})` });
+    }
+
+    let totalSize = 0;
+
+    for (const f of files) {
+      if (!f || typeof f.path !== 'string' || typeof f.content !== 'string') {
+        return res.status(400).json({ error: 'Invalid file entry' });
+      }
+
+      if (f.path.startsWith('/') || f.path.split('/').includes('..')) {
+        return res.status(400).json({ error: `Invalid file path: ${f.path}` });
+      }
+
+      totalSize += f.content.length;
+    }
+
+    if (totalSize > MAX_TOTAL_SIZE) {
+      return res.status(400).json({ error: 'Project is too large to sync (max 10 MB)' });
+    }
+
+    const tokenResult = await pool.query(
+      "SELECT access_token FROM user_auth_providers WHERE user_id = $1 AND provider = 'github'",
+      [req.user.id],
+    );
+
+    const token = tokenResult.rows[0]?.access_token;
+
+    if (!token) {
+      return res.status(403).json({ error: 'GitHub is not connected', code: 'github_not_connected' });
+    }
+
+    const userRes = await ghFetch(token, '/user');
+
+    if (!userRes.ok) {
+      return res
+        .status(403)
+        .json({ error: 'GitHub connection is no longer valid. Please reconnect.', code: 'github_reauth' });
+    }
+
+    const owner = userRes.data.login;
+
+    // Get or create the repository
+    let repoRes = await ghFetch(token, `/repos/${owner}/${repoName}`);
+    let repo = repoRes.ok ? repoRes.data : null;
+    let created = false;
+
+    if (!repo) {
+      const createRes = await ghFetch(token, '/user/repos', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: repoName,
+          private: true,
+          auto_init: true,
+          description: workspace.description || 'Created with Skech',
+        }),
+      });
+
+      if (!createRes.ok) {
+        const msg = createRes.data?.errors?.[0]?.message || createRes.data?.message || 'Failed to create repository';
+        return res.status(502).json({ error: `GitHub: ${msg}` });
+      }
+
+      repo = createRes.data;
+      created = true;
+    }
+
+    const branch = repo.default_branch || 'main';
+
+    // Fetch the current head of the default branch (retry briefly for a
+    // freshly auto-initialized repo)
+    let headSha = null;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const refRes = await ghFetch(token, `/repos/${owner}/${repoName}/git/ref/${encodeURIComponent(`heads/${branch}`)}`);
+
+      if (refRes.ok) {
+        headSha = refRes.data.object.sha;
+        break;
+      }
+
+      if (!created) {
+        break;
+      }
+
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    // Existing repo with no commits yet (empty repo): bootstrap it with an
+    // initial commit via the Contents API so the Git Data flow below works.
+    if (!headSha) {
+      const bootstrapRes = await ghFetch(token, `/repos/${owner}/${repoName}/contents/.skech`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          message: 'Initialize repository (Skech)',
+          content: Buffer.from('Created with Skech\n', 'utf8').toString('base64'),
+          branch,
+        }),
+      });
+
+      if (bootstrapRes.ok) {
+        const refRes = await ghFetch(
+          token,
+          `/repos/${owner}/${repoName}/git/ref/${encodeURIComponent(`heads/${branch}`)}`,
+        );
+
+        if (refRes.ok) {
+          headSha = refRes.data.object.sha;
+        }
+      }
+    }
+
+    if (!headSha) {
+      return res.status(502).json({ error: 'Could not read the repository branch. Please try again.' });
+    }
+
+    // Create blobs for each file
+    const treeEntries = [];
+
+    for (const f of files) {
+      const blobRes = await ghFetch(token, `/repos/${owner}/${repoName}/git/blobs`, {
+        method: 'POST',
+        body: JSON.stringify({
+          content: Buffer.from(f.content, 'utf8').toString('base64'),
+          encoding: 'base64',
+        }),
+      });
+
+      if (!blobRes.ok) {
+        return res.status(502).json({ error: `GitHub: failed to upload ${f.path}` });
+      }
+
+      treeEntries.push({ path: f.path, mode: '100644', type: 'blob', sha: blobRes.data.sha });
+    }
+
+    // Full-snapshot tree (no base_tree) so removed files disappear from the repo
+    const treeRes = await ghFetch(token, `/repos/${owner}/${repoName}/git/trees`, {
+      method: 'POST',
+      body: JSON.stringify({ tree: treeEntries }),
+    });
+
+    if (!treeRes.ok) {
+      return res.status(502).json({ error: 'GitHub: failed to build the file tree' });
+    }
+
+    const commitRes = await ghFetch(token, `/repos/${owner}/${repoName}/git/commits`, {
+      method: 'POST',
+      body: JSON.stringify({
+        message: commitMessage || `Sync from Skech — ${new Date().toISOString()}`,
+        tree: treeRes.data.sha,
+        parents: [headSha],
+      }),
+    });
+
+    if (!commitRes.ok) {
+      return res.status(502).json({ error: 'GitHub: failed to create the commit' });
+    }
+
+    const updateRefRes = await ghFetch(
+      token,
+      `/repos/${owner}/${repoName}/git/refs/${encodeURIComponent(`heads/${branch}`)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ sha: commitRes.data.sha, force: false }),
+      },
+    );
+
+    if (!updateRefRes.ok) {
+      return res.status(502).json({ error: 'GitHub: failed to update the branch' });
+    }
+
+    const repoUrl = repo.html_url;
+
+    await pool.query('UPDATE workspaces SET git_url = $1, git_branch = $2, updated_at = NOW() WHERE id = $3', [
+      repoUrl,
+      branch,
+      req.params.id,
+    ]);
+
+    return res.json({
+      success: true,
+      repoUrl,
+      branch,
+      created,
+      commitSha: commitRes.data.sha,
+    });
+  } catch (err) {
+    console.error('GitHub sync error:', err);
+    return res.status(500).json({ error: 'Failed to sync to GitHub' });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
     const result = await pool.query(

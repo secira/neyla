@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '@nanostores/react';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { DeployButton } from '~/components/deploy/DeployButton';
+import { SyncToGitHubButton } from './SyncToGitHubButton.client';
 
 interface HeaderActionButtonsProps {
   chatStarted: boolean;
@@ -16,6 +17,9 @@ export function HeaderActionButtons({ chatStarted: _chatStarted }: HeaderActionB
 
   return (
     <div className="flex items-center gap-1">
+      {/* Sync to GitHub */}
+      {shouldShowButtons && <SyncToGitHubButton />}
+
       {/* Deploy Button */}
       {shouldShowButtons && <DeployButton />}
 

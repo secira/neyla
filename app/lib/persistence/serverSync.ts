@@ -99,6 +99,28 @@ async function getOrCreateWorkspace(urlId: string, title?: string): Promise<stri
   return id || null;
 }
 
+/**
+ * Ensures a server-side workspace exists for the given chat and returns its id.
+ * Returns null when logged out or when the server is unreachable.
+ */
+export async function ensureServerWorkspace(urlId: string, title?: string): Promise<string | null> {
+  if (!isLoggedIn()) {
+    return null;
+  }
+
+  return getOrCreateWorkspace(urlId, title);
+}
+
+export async function getServerWorkspaceDetail(workspaceId: string): Promise<any | null> {
+  const res = await fetchAPI(`/${workspaceId}`, 'GET');
+
+  if (!res || !res.ok) {
+    return null;
+  }
+
+  return res.json();
+}
+
 export async function syncMessagesToServer(
   urlId: string,
   messages: Message[],

@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import pool from '../db.js';
-import { signToken } from '../middleware/auth.js';
+import { signToken, JWT_SECRET } from '../middleware/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -261,7 +262,7 @@ router.get('/github', (req, res) => {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${getAppUrl(req)}/api/auth/github/callback`,
-    scope: 'read:user user:email',
+    scope: 'read:user user:email repo',
     state,
   });
 
@@ -315,10 +316,45 @@ router.get('/github/callback', async (req, res) => {
     const emails = await emailRes.json();
     const primaryEmail = emails.find((e) => e.primary && e.verified)?.email || emails[0]?.email;
 
+    // If the user is already logged in (Google/email account), link GitHub to
+    // their existing account instead of creating/logging into a separate one.
+    let linkedUserId = null;
+
+    const existingSession = req.cookies?.skech_token;
+
+    if (existingSession) {
+      try {
+        const payload = jwt.verify(existingSession, JWT_SECRET);
+        linkedUserId = payload.id;
+      } catch {
+        linkedUserId = null;
+      }
+    }
+
     const existingProvider = await pool.query(
       'SELECT user_id FROM user_auth_providers WHERE provider = $1 AND provider_id = $2',
       ['github', String(ghUser.id)],
     );
+
+    if (linkedUserId) {
+      if (existingProvider.rows.length > 0 && existingProvider.rows[0].user_id !== linkedUserId) {
+        return res.redirect('/auth/popup-success?auth_error=github_already_linked');
+      }
+
+      if (existingProvider.rows.length > 0) {
+        await pool.query(
+          'UPDATE user_auth_providers SET access_token = $1, updated_at = NOW() WHERE provider = $2 AND provider_id = $3',
+          [tokenData.access_token, 'github', String(ghUser.id)],
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO user_auth_providers (user_id, provider, provider_id, access_token) VALUES ($1, $2, $3, $4)',
+          [linkedUserId, 'github', String(ghUser.id), tokenData.access_token],
+        );
+      }
+
+      return res.redirect('/auth/popup-success');
+    }
 
     let userId;
 
@@ -366,6 +402,48 @@ router.get('/github/callback', async (req, res) => {
   } catch (err) {
     console.error('GitHub OAuth error:', err);
     return res.redirect('/auth/popup-success?auth_error=github_failed');
+  }
+});
+
+router.get('/github/status', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT access_token FROM user_auth_providers WHERE user_id = $1 AND provider = 'github'",
+      [req.user.id],
+    );
+
+    const accessToken = result.rows[0]?.access_token;
+
+    if (!accessToken) {
+      return res.json({ connected: false });
+    }
+
+    const ghRes = await fetch('https://api.github.com/user', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    });
+
+    if (!ghRes.ok) {
+      return res.json({ connected: false, needsReauth: true });
+    }
+
+    const scopes = (ghRes.headers.get('x-oauth-scopes') || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const ghUser = await ghRes.json();
+
+    return res.json({
+      connected: true,
+      username: ghUser.login,
+      hasRepoScope: scopes.includes('repo'),
+    });
+  } catch (err) {
+    console.error('GitHub status error:', err);
+    return res.status(500).json({ error: 'Failed to check GitHub connection' });
   }
 });
 
