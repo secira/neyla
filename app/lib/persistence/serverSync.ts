@@ -1,25 +1,66 @@
 import type { Message } from 'ai';
+import { toast } from 'react-toastify';
 import { authUserAtom } from '~/lib/stores/auth';
 import type { Snapshot } from './types';
 
 const API_BASE = '/api/workspaces';
 
 function isLoggedIn(): boolean {
-  return authUserAtom.get() !== null;
+  // authUserAtom is `undefined` while auth state is still loading and `null`
+  // when definitely logged out — only treat a concrete user object as logged in
+  return authUserAtom.get() != null;
 }
 
-async function fetchAPI(path: string, method: string, body?: unknown): Promise<Response | null> {
-  try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    return res;
-  } catch {
-    return null;
+// Throttle sync-failure toasts so a flaky connection doesn't spam the user
+let lastSyncErrorToast = 0;
+
+// Set when the server rejects our session (401/403) — the session expired,
+// so a "cloud sync failed" warning would be misleading
+let lastAuthRejected = false;
+
+function notifySyncFailure() {
+  if (lastAuthRejected || !isLoggedIn()) {
+    return;
   }
+
+  const now = Date.now();
+
+  if (now - lastSyncErrorToast > 60_000) {
+    lastSyncErrorToast = now;
+    toast.warning('Cloud sync failed — your work is saved locally and will sync when the connection recovers.');
+  }
+}
+
+async function fetchAPI(path: string, method: string, body?: unknown, retries = 1): Promise<Response | null> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      lastAuthRejected = res.status === 401 || res.status === 403;
+
+      // Retry transient server errors once
+      if (res.status >= 500 && attempt < retries) {
+        await new Promise((r) => setTimeout(r, 1000));
+        continue;
+      }
+
+      return res;
+    } catch {
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 1000));
+        continue;
+      }
+
+      return null;
+    }
+  }
+
+  return null;
 }
 
 let syncCache: Record<string, string> = {};
@@ -67,7 +108,11 @@ export async function syncMessagesToServer(
   if (!isLoggedIn()) return;
 
   const workspaceId = await getOrCreateWorkspace(urlId, title);
-  if (!workspaceId) return;
+
+  if (!workspaceId) {
+    notifySyncFailure();
+    return;
+  }
 
   const storableMessages = messages
     .filter((m) => !m.annotations?.includes('no-store'))
@@ -77,11 +122,15 @@ export async function syncMessagesToServer(
       annotations: m.annotations || [],
     }));
 
-  await fetchAPI(`/${workspaceId}`, 'PUT', {
+  const putRes = await fetchAPI(`/${workspaceId}`, 'PUT', {
     title: title || undefined,
     messages: storableMessages,
     snapshot: snapshot || undefined,
   });
+
+  if (!putRes || !putRes.ok) {
+    notifySyncFailure();
+  }
 }
 
 export async function loadWorkspaceFromServer(urlId: string): Promise<{

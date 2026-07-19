@@ -124,9 +124,7 @@ function getAppUrl(req) {
   if (process.env.APP_URL) return process.env.APP_URL;
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5000';
   const proto = req.headers['x-forwarded-proto'] || 'http';
-  const url = `${proto}://${host}`;
-  console.log('[OAuth] getAppUrl:', url, '| forwarded-host:', req.headers['x-forwarded-host'], '| host:', req.headers.host);
-  return url;
+  return `${proto}://${host}`;
 }
 
 router.get('/google', (req, res) => {
@@ -156,11 +154,7 @@ router.get('/google/callback', async (req, res) => {
     const { code, state } = req.query;
     const storedState = req.cookies?.oauth_state;
 
-    console.log('[Google CB] state:', state, '| storedState:', storedState, '| cookies:', JSON.stringify(req.cookies));
-    console.log('[Google CB] redirectUri:', `${getAppUrl(req)}/api/auth/google/callback`);
-
     if (!state || state !== storedState) {
-      console.log('[Google CB] State mismatch — redirecting to invalid_state');
       return res.redirect('/auth/popup-success?auth_error=invalid_state');
     }
 
@@ -194,7 +188,7 @@ router.get('/google/callback', async (req, res) => {
     const googleUser = await userInfoRes.json();
 
     if (!googleUser.sub) {
-      return res.redirect('/login?auth_error=google_failed');
+      return res.redirect('/auth/popup-success?auth_error=google_failed');
     }
 
     const existingProvider = await pool.query(

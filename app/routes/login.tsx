@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from '@remix-run/react';
 import { authUserAtom, authLoadingAtom, fetchCurrentUser } from '~/lib/stores/auth';
 import { useStore } from '@nanostores/react';
+import { openOAuthPopup, OAUTH_ERROR_MESSAGES } from '~/lib/utils/oauthPopup';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [oauthPending, setOauthPending] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -66,52 +68,40 @@ export default function Login() {
     }
   };
 
-  const openOAuthPopup = (url: string) => {
-    const w = 500, h = 650;
-    const left = Math.round(window.screenX + (window.outerWidth - w) / 2);
-    const top = Math.round(window.screenY + (window.outerHeight - h) / 2);
-    const popup = window.open(url, 'oauth_popup', `width=${w},height=${h},left=${left},top=${top},popup=yes`);
+  const startOAuth = async (url: string) => {
+    if (oauthPending) {
+      return;
+    }
 
-    if (!popup) {
+    setOauthPending(true);
+    setError('');
+
+    const { blocked, result } = openOAuthPopup(url);
+
+    if (blocked) {
+      // Popup blocked — fall back to full-page redirect
       window.location.href = url;
       return;
     }
 
-    // Clear any stale result before opening the popup
-    localStorage.removeItem('oauth_result');
+    const outcome = await result;
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== 'oauth_result' || !e.newValue) return;
+    setOauthPending(false);
 
-      window.removeEventListener('storage', onStorage);
+    if (!outcome) {
+      // Popup closed without completing — user likely cancelled; no error needed
+      return;
+    }
 
-      try {
-        const result = JSON.parse(e.newValue);
-
-        if (result.type === 'success') {
-          localStorage.removeItem('oauth_result');
-          window.location.href = '/';
-        } else {
-          localStorage.removeItem('oauth_result');
-          const messages: Record<string, string> = {
-            invalid_state: 'Authentication failed. Please try again.',
-            google_token_failed: 'Google login failed. Please try again.',
-            google_failed: 'Google login failed. Please try again.',
-            github_token_failed: 'GitHub login failed. Please try again.',
-            github_failed: 'GitHub login failed. Please try again.',
-          };
-          setError(messages[result.error] || 'Authentication failed.');
-        }
-      } catch {
-        setError('Authentication failed. Please try again.');
-      }
-    };
-
-    window.addEventListener('storage', onStorage);
+    if (outcome.type === 'success') {
+      window.location.href = '/';
+    } else {
+      setError(OAUTH_ERROR_MESSAGES[outcome.error || ''] || 'Authentication failed. Please try again.');
+    }
   };
 
-  const handleGitHubLogin = () => openOAuthPopup('/api/auth/github');
-  const handleGoogleLogin = () => openOAuthPopup('/api/auth/google');
+  const handleGitHubLogin = () => startOAuth('/api/auth/github');
+  const handleGoogleLogin = () => startOAuth('/api/auth/google');
 
   if (loading || user) {
     return (
