@@ -10,8 +10,9 @@ type ShimContainer = {
 };
 
 export async function newShellProcess(webcontainer: ShimContainer, terminal: ITerminal) {
-  terminal.write('\r\n\x1b[33m[E2B Shell] Interactive shell is not available in E2B mode.\x1b[0m\r\n');
-  terminal.write('\x1b[33mCommands are executed via the AI assistant.\x1b[0m\r\n');
+  terminal.write('\r\n\x1b[32m[Neyla Sandbox]\x1b[0m Connected\r\n');
+  terminal.write('\x1b[90mThis terminal shows AI command output. To run commands, ask Neyla in the chat.\x1b[0m\r\n');
+  terminal.write('\x1b[90mTip: if your preview stopped, ask Neyla to \x1b[0m\x1b[33m"restart the dev server"\x1b[0m\x1b[90m.\x1b[0m\r\n');
 
   return {
     output: new ReadableStream(),

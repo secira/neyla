@@ -64,6 +64,8 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
   const files = useStore(workbenchStore.files);
   const hasFiles = Object.values(files).some((f) => f?.type === 'file');
   const activePreview = previews[activePreviewIndex];
+  const [serverTimedOut, setServerTimedOut] = useState(false);
+  const serverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [displayPath, setDisplayPath] = useState('/');
   const [iframeUrl, setIframeUrl] = useState<string | undefined>();
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -104,6 +106,40 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
     setIframeUrl(baseUrl);
     setDisplayPath('/');
   }, [activePreview]);
+
+  useEffect(() => {
+    if (activePreview) {
+      setServerTimedOut(false);
+
+      if (serverTimeoutRef.current) {
+        clearTimeout(serverTimeoutRef.current);
+        serverTimeoutRef.current = null;
+      }
+
+      return;
+    }
+
+    if (hasFiles) {
+      if (serverTimeoutRef.current) {
+        clearTimeout(serverTimeoutRef.current);
+      }
+
+      serverTimeoutRef.current = setTimeout(() => setServerTimedOut(true), 90_000);
+    } else {
+      setServerTimedOut(false);
+
+      if (serverTimeoutRef.current) {
+        clearTimeout(serverTimeoutRef.current);
+        serverTimeoutRef.current = null;
+      }
+    }
+
+    return () => {
+      if (serverTimeoutRef.current) {
+        clearTimeout(serverTimeoutRef.current);
+      }
+    };
+  }, [hasFiles, activePreview]);
 
   const findMinPortIndex = useCallback(
     (minIndex: number, preview: { port: number }, index: number, array: { port: number }[]) => {
@@ -1014,14 +1050,14 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
             </>
           ) : (
             <div className="flex flex-col w-full h-full justify-center items-center bg-bolt-elements-background-depth-1 select-none">
-              {hasFiles ? (
+              {hasFiles && !serverTimedOut ? (
                 <>
                   <div className="relative mb-5">
                     <div
                       className="flex items-center justify-center w-16 h-16 rounded-2xl shadow-lg"
                       style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 55%, #784BA0 100%)' }}
                     >
-                      <span className="text-white text-3xl font-black tracking-tight">S</span>
+                      <span className="text-white text-3xl font-black tracking-tight">N</span>
                     </div>
                     <div
                       className="absolute -inset-1 rounded-2xl animate-spin"
@@ -1035,13 +1071,29 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
                   <p className="text-lg font-semibold text-bolt-elements-textSecondary mb-1">Starting dev server...</p>
                   <p className="text-sm text-bolt-elements-textTertiary">Installing packages and launching your app</p>
                 </>
+              ) : hasFiles && serverTimedOut ? (
+                <>
+                  <div
+                    className="flex items-center justify-center w-16 h-16 rounded-2xl mb-5 shadow-lg"
+                    style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 55%, #784BA0 100%)' }}
+                  >
+                    <div className="i-ph:warning text-white text-3xl" />
+                  </div>
+                  <p className="text-lg font-semibold text-bolt-elements-textSecondary mb-1">Server not responding</p>
+                  <p className="text-sm text-bolt-elements-textTertiary text-center max-w-xs mb-4">
+                    The dev server may have stopped or timed out.
+                  </p>
+                  <p className="text-xs text-bolt-elements-textTertiary text-center max-w-xs px-4 py-3 rounded-lg bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor">
+                    Ask Neyla: <span className="font-semibold text-bolt-elements-textSecondary">"restart the dev server"</span>
+                  </p>
+                </>
               ) : (
                 <>
                   <div
                     className="flex items-center justify-center w-16 h-16 rounded-2xl mb-5 shadow-lg"
                     style={{ background: 'linear-gradient(135deg, #FF6B2B 0%, #FF3CAC 55%, #784BA0 100%)' }}
                   >
-                    <span className="text-white text-3xl font-black tracking-tight">S</span>
+                    <span className="text-white text-3xl font-black tracking-tight">N</span>
                   </div>
                   <p className="text-lg font-semibold text-bolt-elements-textSecondary mb-1">Your preview will appear here</p>
                   <p className="text-sm text-bolt-elements-textTertiary">Ask Neyla to build something to get started</p>

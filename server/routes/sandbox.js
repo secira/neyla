@@ -74,13 +74,25 @@ const DEV_SERVER_PATTERNS = [
   /\bnpm\s+start\b/,
   /\byarn\s+dev\b/,
   /\byarn\s+start\b/,
+  /\byarn\s+run\s+(dev|start)\b/,
   /\bpnpm\s+dev\b/,
   /\bpnpm\s+start\b/,
+  /\bpnpm\s+run\s+(dev|start)\b/,
   /\bvite\b/,
+  /\bnpx\s+vite\b/,
   /\bnext\s+dev\b/,
+  /\bnpx\s+next\s+dev\b/,
   /\bnuxt\s+dev\b/,
   /\bserve\b/,
   /\bhttp-server\b/,
+  /\bnpx\s+serve\b/,
+  /\bnpx\s+http-server\b/,
+  /\bnode\s+.*\b(server|index|app)\.(js|cjs|mjs)\b/,
+  /\bpython3?\s+-m\s+http\.server\b/,
+  /\bpython3?\s+.*\b(server|app|main)\.py\b/,
+  /\bruby\s+.*\b(server|app)\.rb\b/,
+  /\bbun\s+(run\s+)?(dev|start)\b/,
+  /\bdeno\s+run\b/,
 ];
 
 function isDevServerCommand(cmd) {
@@ -151,9 +163,11 @@ router.post('/exec/stream', async (req, res) => {
       // set HOST=0.0.0.0 as env var for CRA/Next.js/other frameworks.
       let serverCmd = split.server;
 
-      if (/\b(npm|pnpm|yarn)\s+run\s+(dev|start)\b/.test(serverCmd)) {
-        // npm run dev -- --host 0.0.0.0  (Vite accepts the --host flag)
-        serverCmd += ' -- --host 0.0.0.0';
+      if (/\b(npm|pnpm|yarn|bun)\s+run\s+(dev|start)\b/.test(serverCmd) || /\b(npx\s+)?vite\b/.test(serverCmd)) {
+        // Vite and Vite-based frameworks accept --host to bind on all interfaces
+        if (!/--host/.test(serverCmd)) {
+          serverCmd += ' -- --host 0.0.0.0';
+        }
       }
 
       const logFile = `${workDir}/.devserver.log`;
