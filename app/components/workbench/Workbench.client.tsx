@@ -15,6 +15,8 @@ import {
 import { IconButton } from '~/components/ui/IconButton';
 import { Slider, type SliderOptions } from '~/components/ui/Slider';
 import { workbenchStore, type WorkbenchViewType } from '~/lib/stores/workbench';
+import { SecretsPanel } from '~/components/workspace/SecretsPanel';
+import { ConfigPanel } from '~/components/workspace/ConfigPanel';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { renderLogger } from '~/utils/logger';
@@ -411,7 +413,7 @@ export const Workbench = memo(
 
                   <div className="w-px h-5 bg-bolt-elements-borderColor mx-1" />
 
-                  {/* View tabs — Code / Diff / Preview */}
+                  {/* View tabs — Code / Changes / Preview */}
                   <div className="flex items-center gap-0.5 bg-bolt-elements-background-depth-2 rounded-lg p-0.5 border border-bolt-elements-borderColor">
                     {(
                       [
@@ -435,6 +437,31 @@ export const Workbench = memo(
                       </button>
                     ))}
                   </div>
+
+                  <div className="w-px h-5 bg-bolt-elements-borderColor mx-0.5" />
+
+                  {/* Utility tabs — Secrets / Settings */}
+                  {(
+                    [
+                      { value: 'secrets', label: 'Secrets', icon: 'i-ph:key' },
+                      { value: 'settings', label: 'Settings', icon: 'i-ph:gear-six' },
+                    ] as const
+                  ).map(({ value, label, icon }) => (
+                    <button
+                      key={value}
+                      onClick={() => setSelectedView(value)}
+                      title={label}
+                      className={classNames(
+                        'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
+                        selectedView === value
+                          ? 'text-orange-500 bg-orange-500/10'
+                          : 'text-bolt-elements-textTertiary hover:text-bolt-elements-textSecondary hover:bg-bolt-elements-background-depth-3',
+                      )}
+                    >
+                      <div className={`${icon} text-sm`} />
+                      <span>{label}</span>
+                    </button>
+                  ))}
 
                   <div className="flex-1" />
 
@@ -500,6 +527,16 @@ export const Workbench = memo(
                   </View>
                   <View initial={{ x: '100%' }} animate={{ x: selectedView === 'preview' ? '0%' : '100%' }}>
                     <Preview setSelectedElement={setSelectedElement} />
+                  </View>
+                  <View initial={{ x: '100%' }} animate={{ x: selectedView === 'secrets' ? '0%' : '100%' }}>
+                    <div className="h-full overflow-y-auto bg-bolt-elements-background-depth-1">
+                      <SecretsPanel />
+                    </div>
+                  </View>
+                  <View initial={{ x: '100%' }} animate={{ x: selectedView === 'settings' ? '0%' : '100%' }}>
+                    <div className="h-full overflow-y-auto bg-bolt-elements-background-depth-1">
+                      <ConfigPanel />
+                    </div>
                   </View>
                 </div>
               </div>
