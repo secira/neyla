@@ -376,25 +376,13 @@ export const Workbench = memo(
 
     return (
       chatStarted && (
-        <motion.div
-          initial="closed"
-          animate={showWorkbench ? 'open' : 'closed'}
-          variants={workbenchVariants}
-          className="z-workbench"
+        <div
+          className={classNames(
+            'h-full flex flex-col flex-1 min-w-0 overflow-hidden transition-[width] duration-200',
+            !showWorkbench && 'w-0',
+          )}
         >
-          <div
-            className={classNames(
-              'fixed top-[var(--header-height)] bottom-0 w-[var(--workbench-inner-width)] z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
-              {
-                'w-full': isSmallViewport,
-                'left-0': showWorkbench && isSmallViewport,
-                'left-[var(--workbench-left)]': showWorkbench,
-                'left-[100%]': !showWorkbench,
-              },
-            )}
-          >
-            <div className="absolute inset-0">
-              <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border-l border-bolt-elements-borderColor overflow-hidden">
+          <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border-l border-bolt-elements-borderColor overflow-hidden">
                 {/* Workbench toolbar */}
                 <div className="flex items-center h-10 px-2 border-b border-bolt-elements-borderColor gap-1 bg-bolt-elements-background-depth-1">
                   {/* Sidebar toggle */}
@@ -539,10 +527,8 @@ export const Workbench = memo(
                     </div>
                   </View>
                 </div>
-              </div>
-            </div>
           </div>
-        </motion.div>
+        </div>
       )
     );
   },
