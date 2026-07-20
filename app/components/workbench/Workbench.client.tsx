@@ -384,7 +384,7 @@ export const Workbench = memo(
         >
           <div
             className={classNames(
-              'fixed top-[calc(var(--header-height)+1.2rem)] bottom-6 w-[var(--workbench-inner-width)] z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
+              'fixed top-[var(--header-height)] bottom-0 w-[var(--workbench-inner-width)] z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
               {
                 'w-full': isSmallViewport,
                 'left-0': showWorkbench && isSmallViewport,
@@ -393,8 +393,8 @@ export const Workbench = memo(
               },
             )}
           >
-            <div className="absolute inset-0 px-2 lg:px-4">
-              <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor shadow-sm rounded-lg overflow-hidden">
+            <div className="absolute inset-0">
+              <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border-l border-bolt-elements-borderColor overflow-hidden">
                 {/* Workbench toolbar */}
                 <div className="flex items-center h-10 px-2 border-b border-bolt-elements-borderColor gap-1 bg-bolt-elements-background-depth-1">
                   {/* Sidebar toggle */}
