@@ -391,8 +391,8 @@ export const Workbench = memo(
       chatStarted && (
         <div
           className={classNames(
-            'h-full flex flex-col flex-1 min-w-0 overflow-hidden transition-[width] duration-200',
-            !showWorkbench && 'w-0',
+            'h-full flex flex-col flex-1 min-w-0 overflow-hidden',
+            !showWorkbench && 'hidden',
           )}
         >
           <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border-l border-bolt-elements-borderColor overflow-hidden">
