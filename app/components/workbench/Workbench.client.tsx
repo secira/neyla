@@ -1,7 +1,7 @@
 import { useStore } from '@nanostores/react';
 import { motion, type HTMLMotionProps, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
-import { memo, useCallback, useEffect, useState, useMemo } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import { Popover, Transition } from '@headlessui/react';
 import { diffLines, type Change } from 'diff';
@@ -315,11 +315,24 @@ export const Workbench = memo(
       workbenchStore.currentView.set(view);
     };
 
+    const prevStreamingRef = useRef(streaming);
+
     useEffect(() => {
       if (hasPreview) {
+        workbenchStore.showWorkbench.set(true);
         setSelectedView('preview');
       }
     }, [hasPreview]);
+
+    useEffect(() => {
+      const wasStreaming = prevStreamingRef.current;
+      prevStreamingRef.current = streaming;
+
+      if (wasStreaming && !streaming && hasPreview) {
+        workbenchStore.showWorkbench.set(true);
+        setSelectedView('preview');
+      }
+    }, [streaming]);
 
     useEffect(() => {
       workbenchStore.setDocuments(files);
