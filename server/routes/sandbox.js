@@ -426,6 +426,44 @@ router.get('/files/watch', async (req, res) => {
   }
 });
 
+router.get('/files/snapshot', async (req, res) => {
+  try {
+    const { path: rootPath = WORK_DIR, maxFiles = '300' } = req.query;
+    const sandboxId = getSandboxId(req);
+    const sandbox = await getOrCreateSandbox(sandboxId);
+    const limit = Math.min(parseInt(maxFiles) || 300, 500);
+    const files = {};
+    const SKIP_DIRS = new Set(['node_modules', '.git', '.cache', 'dist', 'build', '.next', '__pycache__']);
+
+    async function walk(dir) {
+      if (Object.keys(files).length >= limit) return;
+      let entries;
+      try {
+        entries = await sandbox.files.list(dir);
+      } catch {
+        return;
+      }
+      for (const entry of entries) {
+        if (Object.keys(files).length >= limit) return;
+        if (SKIP_DIRS.has(entry.name)) continue;
+        if (entry.isDir) {
+          await walk(entry.path);
+        } else {
+          try {
+            const content = await sandbox.files.read(entry.path);
+            files[entry.path] = content;
+          } catch {}
+        }
+      }
+    }
+
+    await walk(rootPath);
+    return res.json({ files });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/destroy', async (req, res) => {
   const sandboxId = getSandboxId(req);
   await destroySandbox(sandboxId);

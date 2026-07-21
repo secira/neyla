@@ -11,16 +11,15 @@ interface HeaderActionButtonsProps {
 export function HeaderActionButtons({ chatStarted: _chatStarted }: HeaderActionButtonsProps) {
   const [activePreviewIndex] = useState(0);
   const previews = useStore(workbenchStore.previews);
+  const files = useStore(workbenchStore.files);
   const activePreview = previews[activePreviewIndex];
+  const hasFiles = Object.values(files).some((f) => f?.type === 'file');
 
-  const shouldShowButtons = activePreview;
+  const shouldShowButtons = activePreview || hasFiles;
 
   return (
     <div className="flex items-center gap-1">
-      {/* Sync to GitHub */}
       {shouldShowButtons && <SyncToGitHubButton />}
-
-      {/* Publish to EC2 */}
       {shouldShowButtons && <PublishButton />}
     </div>
   );

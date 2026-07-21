@@ -3,7 +3,7 @@
  * All heavy lifting is done server-side via the sandbox API routes.
  */
 
-import { e2bFiles, e2bCommands, getPreviewUrl, watchFiles } from './client';
+import { e2bFiles, e2bCommands, getPreviewUrl, watchFiles, snapshotFiles } from './client';
 import { WORK_DIR, WORK_DIR_NAME } from '~/utils/constants';
 import { createScopedLogger } from '~/utils/logger';
 
@@ -211,6 +211,19 @@ export class E2BContainerShim {
       callback: (events: Array<any>) => void,
     ) => {
       const watchPath = WORK_DIR;
+
+      snapshotFiles(WORK_DIR).then((files) => {
+        const snapEvents: any[] = [];
+
+        for (const [filePath, content] of Object.entries(files)) {
+          const buf = new TextEncoder().encode(content);
+          snapEvents.push({ type: 'add_file', path: filePath, buffer: buf });
+        }
+
+        if (snapEvents.length > 0) {
+          callback([snapEvents]);
+        }
+      }).catch(() => {});
 
       const stop = watchFiles(watchPath, (event) => {
         const mapped = mapE2BEventToWatcherEvent(event);

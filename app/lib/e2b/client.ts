@@ -196,14 +196,33 @@ export async function getPreviewUrl(port: number): Promise<string> {
   return url;
 }
 
+export async function snapshotFiles(rootPath: string): Promise<Record<string, string>> {
+  try {
+    const res = await sandboxFetch(`files/snapshot?path=${encodeURIComponent(rootPath)}&maxFiles=300`);
+
+    if (!res.ok) {
+      return {};
+    }
+
+    const { files } = (await res.json()) as { files: Record<string, string> };
+
+    return files || {};
+  } catch {
+    return {};
+  }
+}
+
 export function watchFiles(
   watchPath: string,
   callback: (event: { type: string; path: string; content?: string }) => void,
 ): () => void {
   const controller = new AbortController();
   const headers = sandboxHeaders();
+  let retryDelay = 1000;
 
-  (async () => {
+  async function connect() {
+    if (controller.signal.aborted) return;
+
     try {
       const res = await fetch(
         `${SANDBOX_API_BASE}/files/watch?path=${encodeURIComponent(watchPath)}`,
@@ -214,9 +233,11 @@ export function watchFiles(
       );
 
       if (!res.ok || !res.body) {
+        scheduleRetry();
         return;
       }
 
+      retryDelay = 1000;
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
       let buffer = '';
 
@@ -242,14 +263,25 @@ export function watchFiles(
           } catch {}
         }
       }
+
+      scheduleRetry();
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
 
       logger.error('File watcher error', err);
+      scheduleRetry();
     }
-  })();
+  }
+
+  function scheduleRetry() {
+    if (controller.signal.aborted) return;
+    setTimeout(() => connect(), retryDelay);
+    retryDelay = Math.min(retryDelay * 2, 30000);
+  }
+
+  connect();
 
   return () => controller.abort();
 }
