@@ -1,9 +1,117 @@
 import { Router } from 'express';
 import { resolve } from 'path';
+import { Readable } from 'stream';
 import { getOrCreateSandbox, destroySandbox } from '../e2b-sandbox.js';
 
 const router = Router();
 const WORK_DIR = '/home/project';
+
+// Proxy URL prefix that the browser uses to reach E2B content through our server
+const PROXY_PREFIX = '/api/sandbox/preview-proxy';
+
+// Cache: "sandboxId:port" → E2B hostname (e.g. "5173-xxx.e2b.app")
+const e2bHostCache = new Map();
+
+/**
+ * Rewrite root-relative paths in HTML/JS/CSS so they go through our proxy
+ * instead of resolving against the browser's document origin.
+ * Example: src="/@vite/client" → src="/api/sandbox/preview-proxy/s-xxx/5173/@vite/client"
+ */
+function rewriteForProxy(content, sandboxId, port) {
+  const base = `${PROXY_PREFIX}/${sandboxId}/${port}`;
+
+  return content
+    // HTML attributes: src="/  href="/  action="/
+    .replace(/(\bsrc=")(\/)(?!\/)/g, `$1${base}/`)
+    .replace(/(\bhref=")(\/)(?!\/)/g, `$1${base}/`)
+    .replace(/(\baction=")(\/)(?!\/)/g, `$1${base}/`)
+    // JS ESM imports (double quotes)
+    .replace(/(\bfrom ")(\/)(?!\/)/g, `$1${base}/`)
+    .replace(/(\bimport ")(\/)(?!\/)/g, `$1${base}/`)
+    .replace(/(\bimport\(")(\/)(?!\/)/g, `$1${base}/`)
+    // JS ESM imports (single quotes)
+    .replace(/(\bfrom ')(\/)(?!\/)/g, `$1${base}/`)
+    .replace(/(\bimport ')(\/)(?!\/)/g, `$1${base}/`)
+    .replace(/(\bimport\(')(\/)(?!\/)/g, `$1${base}/`)
+    // CSS url()
+    .replace(/(\burl\(")(\/)(?!\/)/g, `$1${base}/`)
+    .replace(/(\burl\(')(\/)(?!\/)/g, `$1${base}/`);
+}
+
+/**
+ * Proxy a single request to E2B, rewriting text content paths so the
+ * browser always fetches through our server rather than directly to E2B.
+ */
+async function proxyHandler(req, res) {
+  try {
+    const { sandboxId, port } = req.params;
+    const portNum = parseInt(port, 10);
+    // req.params[0] captures the wildcard segment (everything after /:port/)
+    const subPath = req.params[0] !== undefined && req.params[0] !== ''
+      ? `/${req.params[0]}`
+      : '/';
+
+    // Build query string from parsed params
+    const queryParts = [];
+    for (const [k, v] of Object.entries(req.query || {})) {
+      queryParts.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+    }
+    const query = queryParts.length ? '?' + queryParts.join('&') : '';
+
+    // Get the E2B host — use cache so we don't call getHost() on every asset
+    let host = e2bHostCache.get(`${sandboxId}:${portNum}`);
+    if (!host) {
+      const sandbox = await getOrCreateSandbox(sandboxId);
+      host = await sandbox.getHost(portNum);
+      e2bHostCache.set(`${sandboxId}:${portNum}`, host);
+    }
+
+    const targetUrl = `https://${host}${subPath}${query}`;
+
+    const response = await fetch(targetUrl, {
+      headers: {
+        'Accept-Encoding': 'identity', // avoid compressed responses (we need to rewrite text)
+        'Accept': req.headers['accept'] || '*/*',
+      },
+      redirect: 'follow',
+    });
+
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+
+    res.status(response.status);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+
+    const isText = /text\/(html|javascript|css)|application\/javascript/.test(contentType);
+
+    if (isText && response.body) {
+      const text = await response.text();
+      const rewritten = rewriteForProxy(text, sandboxId, portNum);
+      res.send(rewritten);
+    } else if (response.body) {
+      Readable.fromWeb(response.body).pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (err) {
+    console.error('[proxy] Error proxying E2B request:', err.message);
+    res.status(502).send(`Proxy error: ${err.message}`);
+  }
+}
+
+// Use router.use() (prefix match) so path-to-regexp v8 doesn't need to handle
+// an unnamed wildcard. req.path inside the handler gives the remaining path.
+router.use('/preview-proxy', async (req, res) => {
+  // req.path is e.g. '/s-1234/5173/src/main.tsx'
+  const parts = req.path.replace(/^\//, '').split('/');
+  req.params = req.params || {};
+  req.params.sandboxId = parts[0];
+  req.params.port = parts[1];
+  // Remaining segments become the sub-path
+  req.params[0] = parts.slice(2).join('/');
+  return proxyHandler(req, res);
+});
 
 function getSandboxId(req) {
   return req.headers['x-sandbox-id'] || 'default';
@@ -356,13 +464,21 @@ router.get('/preview-url', async (req, res) => {
     const sandboxId = getSandboxId(req);
     const sandbox = await getOrCreateSandbox(sandboxId);
 
-    const url = await checkPortReady(sandbox, sandboxId, portNum);
-    const status = url ? 200 : 0;
-    console.log(`[preview-url] port=${portNum} status=${status}${url ? ` READY → ${url}` : ''}`);
+    const e2bUrl = await checkPortReady(sandbox, sandboxId, portNum);
+    const status = e2bUrl ? 200 : 0;
 
-    if (url) {
-      return res.json({ url });
+    if (e2bUrl) {
+      // Cache the E2B host so the proxy handler doesn't need to call getHost() per asset
+      const host = new URL(e2bUrl).hostname;
+      e2bHostCache.set(`${sandboxId}:${portNum}`, host);
+
+      // Return the proxy URL (browser fetches through our server, never directly to E2B)
+      const proxyUrl = `${PROXY_PREFIX}/${sandboxId}/${portNum}`;
+      console.log(`[preview-url] port=${portNum} status=${status} READY → ${proxyUrl} (E2B: ${e2bUrl})`);
+      return res.json({ url: proxyUrl });
     }
+
+    console.log(`[preview-url] port=${portNum} status=${status}`);
 
     res.status(503).json({ error: 'Server not ready' });
   } catch (err) {

@@ -40,8 +40,10 @@ async function proxySandbox(request: Request, params: Record<string, string | un
     });
   }
 
-  const responseBody = await response.text();
-  return new Response(responseBody, {
+  // Stream the response body directly — do NOT buffer as text().
+  // Buffering as text() corrupts binary assets (images, fonts, WASM, etc.)
+  // and is unnecessary for all content types including JSON.
+  return new Response(response.body, {
     status: response.status,
     headers: { 'Content-Type': contentType },
   });
