@@ -228,17 +228,19 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
           )}
         </ClientOnly>
         <div className="flex justify-between items-center text-sm p-4 pt-2">
-          <div className="flex gap-1 items-center">
-            <ModelSelector
-              model={props.model}
-              setModel={props.setModel}
-              provider={props.provider}
-              setProvider={props.setProvider}
-              providerList={props.providerList || []}
-              modelList={props.modelList || []}
-              apiKeys={props.apiKeys || {}}
-              modelLoading={props.isModelLoading}
-            />
+          <div className="flex gap-1 items-center min-w-0 flex-1 overflow-hidden">
+            <div className="flex-shrink-0" style={{ width: '300px' }}>
+              <ModelSelector
+                model={props.model}
+                setModel={props.setModel}
+                provider={props.provider}
+                setProvider={props.setProvider}
+                providerList={props.providerList || []}
+                modelList={props.modelList || []}
+                apiKeys={props.apiKeys || {}}
+                modelLoading={props.isModelLoading}
+              />
+            </div>
             <ColorSchemeDialog designScheme={props.designScheme} setDesignScheme={props.setDesignScheme} />
             <McpTools />
             <IconButton title="Upload file" className="transition-all" onClick={() => props.handleFileUpload()}>
