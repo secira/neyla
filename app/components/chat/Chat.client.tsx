@@ -268,13 +268,28 @@ export const ChatImpl = memo(
         let errorType: LlmErrorAlertType['errorType'] = 'unknown';
         let title = 'Request Failed';
 
-        if (errorInfo.statusCode === 401 || errorInfo.message.toLowerCase().includes('api key')) {
+        const msg = errorInfo.message.toLowerCase();
+
+        if (errorInfo.statusCode === 401 || msg.includes('api key') || msg.includes('invalid key') || msg.includes('unauthorized')) {
           errorType = 'authentication';
           title = 'Authentication Error';
-        } else if (errorInfo.statusCode === 429 || errorInfo.message.toLowerCase().includes('rate limit')) {
+        } else if (
+          msg.includes('too large') ||
+          msg.includes('tokens per minute') ||
+          msg.includes('context length') ||
+          msg.includes('context_length') ||
+          msg.includes('maximum context') ||
+          msg.includes('reduce your message') ||
+          msg.includes('tpm') ||
+          msg.includes('token limit') ||
+          msg.includes('maximum tokens')
+        ) {
+          errorType = 'context_length';
+          title = 'Message Too Large';
+        } else if (errorInfo.statusCode === 429 || msg.includes('rate limit') || msg.includes('too many requests')) {
           errorType = 'rate_limit';
           title = 'Rate Limit Exceeded';
-        } else if (errorInfo.message.toLowerCase().includes('quota')) {
+        } else if (msg.includes('quota') || msg.includes('billing') || msg.includes('insufficient_quota')) {
           errorType = 'quota';
           title = 'Quota Exceeded';
         } else if (errorInfo.statusCode >= 500) {

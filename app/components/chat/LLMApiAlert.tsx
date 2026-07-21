@@ -18,6 +18,8 @@ export default function LlmErrorAlert({ alert, clearAlert }: Props) {
         return 'i-ph:clock-duotone';
       case 'quota':
         return 'i-ph:warning-circle-duotone';
+      case 'context_length':
+        return 'i-ph:arrows-out-duotone';
       default:
         return 'i-ph:warning-duotone';
     }
@@ -28,9 +30,11 @@ export default function LlmErrorAlert({ alert, clearAlert }: Props) {
       case 'authentication':
         return `We couldn't connect to the AI service (${provider}). If you added your own API key in Settings → AI Providers, please double-check it.`;
       case 'rate_limit':
-        return 'The AI service is a bit busy right now. Please wait a moment and try sending your message again.';
+        return `The ${provider} service is busy or at its rate limit. Please wait a moment and try again, or switch to a different model.`;
       case 'quota':
         return `The usage limit for ${provider} has been reached. Try again later, or add your own API key in Settings → AI Providers.`;
+      case 'context_length':
+        return `Your conversation is too long for the selected model (${provider}). Try switching to a model with a larger context window — like Claude, Gemini, or GPT-4 — in the model picker at the top of the chat.`;
       default:
         return 'Something went wrong while generating a response. Please try sending your message again.';
     }
