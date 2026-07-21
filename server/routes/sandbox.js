@@ -294,50 +294,59 @@ router.delete('/files/delete', async (req, res) => {
   }
 });
 
-// ─── Bulk port-check cache ────────────────────────────────────────────────────
-// Cache the result of the inside-sandbox bulk port scan for 2 s so that
-// simultaneous polls for different ports share one scan.
-const portScanCache = new Map(); // sandboxId → { ts, result }
-const PORT_SCAN_TTL = 2000; // ms
+// ─── Port-ready cache ─────────────────────────────────────────────────────────
+// Cache verified-ready port URLs keyed by sandboxId+port so we don't
+// re-probe external URLs on every poll once a port is confirmed live.
+// Also cache "not ready" results briefly to avoid hammering E2B per poll.
+const portReadyCache = new Map();  // `${sandboxId}:${port}` → { ts, url | null }
+const PORT_READY_TTL = 3000;       // ms — how long to trust a "ready" result
+const PORT_NOTREADY_TTL = 2000;    // ms — how long to trust a "not ready" result
 
-async function getListeningPortStatuses(sandbox, sandboxId, ports) {
-  const cached = portScanCache.get(sandboxId);
+/**
+ * Check whether a port is actually serving content by fetching the
+ * E2B *external* URL for that port from our own process.
+ *
+ * Using an external check (rather than curl inside the sandbox) avoids
+ * false positives caused by E2B's code-interpreter infrastructure which
+ * can have services bound on ports like 5173 before the user's dev server
+ * starts.  The public E2B URL only returns a useful response when a real
+ * user-owned process is listening on 0.0.0.0 inside the sandbox.
+ */
+async function checkPortReady(sandbox, sandboxId, portNum) {
+  const key = `${sandboxId}:${portNum}`;
+  const cached = portReadyCache.get(key);
 
-  if (cached && Date.now() - cached.ts < PORT_SCAN_TTL) {
-    return cached.result;
-  }
-
-  // Single shell command: check all ports in parallel.
-  // We probe the sandbox's own non-loopback IP (the same address E2B's external
-  // proxy uses), so the check only passes when the server is actually reachable
-  // from outside the loopback interface — i.e. it's bound to 0.0.0.0.
-  // Fallback to localhost if LOCAL_IP is empty.
-  const checks = ports
-    .map(
-      (p) =>
-        `{ LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}'); PROBE_HOST=${`\${LOCAL_IP:-127.0.0.1}`}; code=$(curl -s --connect-timeout 1 --max-time 2 -o /dev/null -w "%{http_code}" http://$PROBE_HOST:${p}/ 2>/dev/null || echo 000); echo "${p}:$code"; } &`,
-    )
-    .join(' ');
-  const cmd = `${checks} wait`;
-
-  const result = await sandbox.commands.run(cmd, { timeoutMs: 8000 });
-  const lines = (result.stdout || '').split('\n').filter(Boolean);
-
-  const statuses = {};
-
-  for (const line of lines) {
-    const [portStr, codeStr] = line.trim().split(':');
-    const port = parseInt(portStr, 10);
-    const code = parseInt(codeStr || '000', 10);
-
-    if (!isNaN(port)) {
-      statuses[port] = code;
+  if (cached) {
+    const ttl = cached.url ? PORT_READY_TTL : PORT_NOTREADY_TTL;
+    if (Date.now() - cached.ts < ttl) {
+      return cached.url;
     }
   }
 
-  portScanCache.set(sandboxId, { ts: Date.now(), result: statuses });
+  try {
+    const host = await sandbox.getHost(portNum);
+    const url = `https://${host}`;
 
-  return statuses;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    let status = 0;
+    try {
+      const r = await fetch(url, { signal: controller.signal, redirect: 'manual' });
+      status = r.status;
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    // Accept 2xx–4xx; reject 000/5xx (server not listening or crashing)
+    const ready = status >= 200 && status < 500;
+    const result = ready ? url : null;
+    portReadyCache.set(key, { ts: Date.now(), url: result });
+    return result;
+  } catch {
+    portReadyCache.set(key, { ts: Date.now(), url: null });
+    return null;
+  }
 }
 
 router.get('/preview-url', async (req, res) => {
@@ -347,25 +356,12 @@ router.get('/preview-url', async (req, res) => {
     const sandboxId = getSandboxId(req);
     const sandbox = await getOrCreateSandbox(sandboxId);
 
-    // Check from INSIDE the sandbox — the only reliable way to know if a
-    // server is actually listening. We batch all port scans into one command
-    // and cache the result so parallel polls share one E2B round-trip.
-    const SCAN_PORTS = [3000, 5173, 5174, 8080, 4173, 4000];
+    const url = await checkPortReady(sandbox, sandboxId, portNum);
+    const status = url ? 200 : 0;
+    console.log(`[preview-url] port=${portNum} status=${status}${url ? ` READY → ${url}` : ''}`);
 
-    try {
-      const statuses = await getListeningPortStatuses(sandbox, sandboxId, SCAN_PORTS);
-      const statusCode = statuses[portNum] ?? 0;
-
-      console.log(`[preview-url] port=${portNum} status=${statusCode} (scan: ${JSON.stringify(statuses)})`);
-
-      // Accept 2xx-4xx. Reject 000 (no server), 5xx (not ready yet).
-      if (statusCode >= 200 && statusCode < 500) {
-        const host = await sandbox.getHost(portNum);
-        console.log(`[preview-url] port=${portNum} READY → ${host}`);
-        return res.json({ url: `https://${host}` });
-      }
-    } catch (scanErr) {
-      console.log(`[preview-url] port=${portNum} scan failed:`, scanErr.message);
+    if (url) {
+      return res.json({ url });
     }
 
     res.status(503).json({ error: 'Server not ready' });
