@@ -2,6 +2,7 @@ import { Sandbox } from '@e2b/code-interpreter';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 
 const sandboxes = new Map();
+const creating = new Map(); // deduplicates concurrent creation requests for the same sandboxId
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000;
 
 const PERSIST_FILE = '/tmp/neyla-e2b-sandboxes.json';
@@ -62,44 +63,58 @@ export async function getOrCreateSandbox(sandboxId) {
     }
   }
 
-  // 2. Try to reconnect to a persisted E2B sandbox (survives server restarts)
-  const storedE2BId = getStoredE2BId(sandboxId);
-  if (storedE2BId) {
+  // 2. Deduplicate concurrent creation — if already in progress, wait on same promise
+  if (creating.has(sandboxId)) {
+    return creating.get(sandboxId);
+  }
+
+  const creationPromise = (async () => {
     try {
-      console.log(`[sandbox] Reconnecting to existing E2B sandbox ${storedE2BId} for ${sandboxId}`);
+      // 3. Try to reconnect to a persisted E2B sandbox (survives server restarts)
+      const storedE2BId = getStoredE2BId(sandboxId);
+      if (storedE2BId) {
+        try {
+          console.log(`[sandbox] Reconnecting to existing E2B sandbox ${storedE2BId} for ${sandboxId}`);
+          const sandbox = await Sandbox.create({
+            apiKey: process.env.E2B_API_KEY,
+            sandboxId: storedE2BId,
+          });
+          await sandbox.setTimeout(SANDBOX_TIMEOUT_MS);
+          touchPersisted(sandboxId);
+          sandboxes.set(sandboxId, { sandbox, lastUsed: Date.now() });
+          console.log(`[sandbox] Reconnected successfully to ${storedE2BId}`);
+          return sandbox;
+        } catch (err) {
+          console.log(`[sandbox] Reconnect failed for ${storedE2BId}:`, err.message, '— creating new sandbox');
+        }
+      }
+
+      // 4. Create a fresh sandbox
+      console.log(`[sandbox] Creating new E2B sandbox for ${sandboxId}`);
       const sandbox = await Sandbox.create({
         apiKey: process.env.E2B_API_KEY,
-        sandboxId: storedE2BId,
+        timeoutMs: SANDBOX_TIMEOUT_MS,
       });
-      await sandbox.setTimeout(SANDBOX_TIMEOUT_MS);
-      touchPersisted(sandboxId);
+
+      await sandbox.commands.run(`mkdir -p /home/project && chown -R user:user /home/project || true`);
+
+      // Get the E2B-assigned sandbox ID and persist it
+      const e2bIdResult = await sandbox.commands.run('echo $E2B_SANDBOX_ID').catch(() => null);
+      const e2bId = e2bIdResult?.stdout?.trim();
+      if (e2bId) {
+        storeE2BId(sandboxId, e2bId);
+        console.log(`[sandbox] Created new sandbox ${e2bId} for ${sandboxId}`);
+      }
+
       sandboxes.set(sandboxId, { sandbox, lastUsed: Date.now() });
-      console.log(`[sandbox] Reconnected successfully to ${storedE2BId}`);
       return sandbox;
-    } catch (err) {
-      console.log(`[sandbox] Reconnect failed for ${storedE2BId}:`, err.message, '— creating new sandbox');
+    } finally {
+      creating.delete(sandboxId);
     }
-  }
+  })();
 
-  // 3. Create a fresh sandbox
-  console.log(`[sandbox] Creating new E2B sandbox for ${sandboxId}`);
-  const sandbox = await Sandbox.create({
-    apiKey: process.env.E2B_API_KEY,
-    timeoutMs: SANDBOX_TIMEOUT_MS,
-  });
-
-  await sandbox.commands.run(`mkdir -p /home/project && chown -R user:user /home/project || true`);
-
-  // Get the E2B-assigned sandbox ID and persist it
-  const e2bIdResult = await sandbox.commands.run('echo $E2B_SANDBOX_ID').catch(() => null);
-  const e2bId = e2bIdResult?.stdout?.trim();
-  if (e2bId) {
-    storeE2BId(sandboxId, e2bId);
-    console.log(`[sandbox] Created new sandbox ${e2bId} for ${sandboxId}`);
-  }
-
-  sandboxes.set(sandboxId, { sandbox, lastUsed: Date.now() });
-  return sandbox;
+  creating.set(sandboxId, creationPromise);
+  return creationPromise;
 }
 
 export async function destroySandbox(sandboxId) {

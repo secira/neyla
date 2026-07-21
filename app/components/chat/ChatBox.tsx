@@ -16,6 +16,7 @@ import type { DesignScheme } from '~/types/design-scheme';
 import type { ElementInfo } from '~/components/workbench/Inspector';
 import { McpTools } from './MCPTools';
 import { WebSearch } from './WebSearch.client';
+import { ModelSelector } from './ModelSelector';
 
 interface ChatBoxProps {
   isModelSettingsCollapsed: boolean;
@@ -228,6 +229,16 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
         </ClientOnly>
         <div className="flex justify-between items-center text-sm p-4 pt-2">
           <div className="flex gap-1 items-center">
+            <ModelSelector
+              model={props.model}
+              setModel={props.setModel}
+              provider={props.provider}
+              setProvider={props.setProvider}
+              providerList={props.providerList || []}
+              modelList={props.modelList || []}
+              apiKeys={props.apiKeys || {}}
+              modelLoading={props.isModelLoading}
+            />
             <ColorSchemeDialog designScheme={props.designScheme} setDesignScheme={props.setDesignScheme} />
             <McpTools />
             <IconButton title="Upload file" className="transition-all" onClick={() => props.handleFileUpload()}>

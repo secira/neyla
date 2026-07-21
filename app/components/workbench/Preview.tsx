@@ -824,24 +824,27 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
                             return;
                           }
 
-                          const match = activePreview.baseUrl.match(
+                          const wcMatch = activePreview.baseUrl.match(
                             /^https?:\/\/([^.]+)\.local-credentialless\.webcontainer-api\.io/,
                           );
 
-                          if (!match) {
-                            console.warn('[Preview] Invalid WebContainer URL:', activePreview.baseUrl);
-                            return;
+                          if (wcMatch) {
+                            // WebContainer URL — route through proxy
+                            const previewId = wcMatch[1];
+                            const previewUrl = `/webcontainer/preview/${previewId}`;
+                            window.open(
+                              previewUrl,
+                              `preview-${previewId}`,
+                              'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,resizable=yes',
+                            );
+                          } else {
+                            // E2B or other external URL — open directly
+                            window.open(
+                              activePreview.baseUrl,
+                              `preview-external`,
+                              'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,resizable=yes',
+                            );
                           }
-
-                          const previewId = match[1];
-                          const previewUrl = `/webcontainer/preview/${previewId}`;
-
-                          // Open in a new window with simple parameters
-                          window.open(
-                            previewUrl,
-                            `preview-${previewId}`,
-                            'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,resizable=yes',
-                          );
                         }}
                       >
                         <span>Open in new window</span>
