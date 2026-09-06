@@ -9,7 +9,8 @@ import { useConnectionStatus } from '~/lib/hooks/useConnectionStatus';
 import { tabConfigurationStore, resetTabConfiguration } from '~/lib/stores/settings';
 import { profileStore } from '~/lib/stores/profile';
 import type { TabType, Profile } from './types';
-import { TAB_LABELS, DEFAULT_TAB_CONFIG, TAB_DESCRIPTIONS, ALLOWED_USER_TABS } from './constants';
+import { TAB_LABELS, TAB_DESCRIPTIONS } from './constants';
+import { getVisibleTabs } from './tabVisibility';
 import { DialogTitle } from '~/components/ui/Dialog';
 import { AvatarDropdown } from './AvatarDropdown';
 import BackgroundRays from '~/components/ui/BackgroundRays';
@@ -59,11 +60,6 @@ export const ControlPanel = ({ open, onClose }: ControlPanelProps) => {
   const { hasUnreadNotifications, unreadNotifications, markAllAsRead } = useNotifications();
   const { hasConnectionIssues, currentIssue, acknowledgeIssue } = useConnectionStatus();
 
-  // Memoize the base tab configurations to avoid recalculation
-  const baseTabConfig = useMemo(() => {
-    return new Map(DEFAULT_TAB_CONFIG.map((tab) => [tab.id, tab]));
-  }, []);
-
   // Add visibleTabs logic using useMemo with optimized calculations
   const visibleTabs = useMemo(() => {
     if (!tabConfiguration?.userTabs || !Array.isArray(tabConfiguration.userTabs)) {
@@ -75,30 +71,8 @@ export const ControlPanel = ({ open, onClose }: ControlPanelProps) => {
 
     const notificationsDisabled = profile?.preferences?.notifications === false;
 
-    /*
-     * Simplified settings: only show the small allowlisted set of tabs,
-     * regardless of any older persisted tab configuration.
-     */
-    const configured = tabConfiguration.userTabs.filter((tab) => {
-      if (!tab?.id || !ALLOWED_USER_TABS.includes(tab.id as TabType)) {
-        return false;
-      }
-
-      if (tab.id === 'notifications' && notificationsDisabled) {
-        return false;
-      }
-
-      return tab.visible && tab.window === 'user';
-    });
-
-    // Older persisted configs may be missing allowlisted tabs (e.g. profile/settings) — merge them in
-    const presentIds = new Set(configured.map((tab) => tab.id));
-    const missing = DEFAULT_TAB_CONFIG.filter(
-      (tab) => ALLOWED_USER_TABS.includes(tab.id as TabType) && tab.visible && !presentIds.has(tab.id as TabType),
-    );
-
-    return [...configured, ...(missing as typeof configured)].sort((a, b) => a.order - b.order);
-  }, [tabConfiguration, profile?.preferences?.notifications, baseTabConfig]);
+    return getVisibleTabs(tabConfiguration.userTabs, notificationsDisabled);
+  }, [tabConfiguration, profile?.preferences?.notifications]);
 
   // Reset to default view when modal opens/closes
   useEffect(() => {
