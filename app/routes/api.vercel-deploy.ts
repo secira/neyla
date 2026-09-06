@@ -176,7 +176,8 @@ const detectFramework = (files: Record<string, string>): string => {
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const projectId = url.searchParams.get('projectId');
-  const token = url.searchParams.get('token');
+  const token =
+    request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token');
 
   if (!projectId || !token) {
     return json({ error: 'Missing projectId or token' }, { status: 400 });

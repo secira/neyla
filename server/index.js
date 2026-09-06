@@ -8,6 +8,7 @@ import paymentRoutes from './routes/payments.js';
 import sandboxRoutes from './routes/sandbox.js';
 import deploymentRoutes from './routes/deployments.js';
 import { runMigrations } from './migrations/run.js';
+import { migrateStoredCredentials } from './lib/credentialVault.js';
 
 const app = express();
 const PORT = process.env.AUTH_SERVER_PORT || 3001;
@@ -32,6 +33,7 @@ app.use('/deployments', deploymentRoutes);
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 runMigrations()
+  .then(() => migrateStoredCredentials())
   .then(() => {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Auth server running on port ${PORT}`);

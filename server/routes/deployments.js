@@ -4,6 +4,7 @@ import pool from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { isAwsConfigured, launchInstance, getInstanceState } from '../lib/aws.js';
 import { buildUserData } from '../lib/deployAgent.js';
+import { decryptCredential, encryptCredential } from '../lib/credentialVault.js';
 
 const router = Router();
 
@@ -52,7 +53,7 @@ async function provisionInFlight(deployment) {
       userData: buildUserData({
         serverBase: getServerBase(),
         deploymentId: deployment.id,
-        agentToken: deployment.agent_token,
+        agentToken: decryptCredential(deployment.agent_token_ciphertext),
       }),
     });
 
@@ -82,9 +83,9 @@ async function provisionInFlight(deployment) {
 
     throw new Error('Timed out waiting for the server to get a public address');
   } catch (err) {
-    console.error('Provisioning error:', err);
+    console.error('Provisioning error:', err?.code || err?.name || 'unknown');
     await setStatus(deployment.id, 'error', {
-      error: err?.message || 'Failed to set up the server',
+      error: 'Failed to set up the server',
     });
   }
 }
@@ -93,20 +94,24 @@ async function provisionInFlight(deployment) {
 
 async function agentAuth(req, res) {
   const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : req.query.token;
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
   if (!token || typeof token !== 'string') {
     res.status(401).json({ error: 'Missing token' });
     return null;
   }
 
-  const result = await pool.query('SELECT * FROM deployments WHERE id = $1', [req.params.id]);
+  const result = await pool.query(
+    `SELECT id, workspace_id, user_id, bundle_version, agent_token_ciphertext
+     FROM deployments WHERE id = $1`,
+    [req.params.id],
+  );
   const deployment = result.rows[0];
 
   const tokensMatch =
     deployment &&
     crypto.timingSafeEqual(
-      crypto.createHash('sha256').update(String(deployment.agent_token)).digest(),
+      crypto.createHash('sha256').update(String(decryptCredential(deployment.agent_token_ciphertext))).digest(),
       crypto.createHash('sha256').update(token).digest(),
     );
 
@@ -217,7 +222,12 @@ router.get('/workspace/:workspaceId', async (req, res) => {
       return undefined;
     }
 
-    const result = await pool.query('SELECT * FROM deployments WHERE workspace_id = $1', [workspace.id]);
+    const result = await pool.query(
+      `SELECT id, status, status_detail, error, url, public_ip,
+              bundle_version, deployed_version, updated_at, created_at
+       FROM deployments WHERE workspace_id = $1`,
+      [workspace.id],
+    );
 
     if (result.rows.length === 0) {
       return res.json({ deployment: null, awsConfigured: isAwsConfigured() });
@@ -289,10 +299,10 @@ router.post('/workspace/:workspaceId/publish', async (req, res) => {
       if (!deployment) {
         const agentToken = crypto.randomBytes(32).toString('hex');
         const inserted = await client.query(
-          `INSERT INTO deployments (workspace_id, user_id, status, status_detail, agent_token)
+          `INSERT INTO deployments (workspace_id, user_id, status, status_detail, agent_token_ciphertext)
            VALUES ($1, $2, 'provisioning', 'Setting up your server on AWS', $3)
            ON CONFLICT (workspace_id) DO NOTHING RETURNING *`,
-          [workspace.id, req.user.id, agentToken],
+          [workspace.id, req.user.id, encryptCredential(agentToken)],
         );
 
         if (inserted.rows.length === 0) {
@@ -350,7 +360,12 @@ router.post('/workspace/:workspaceId/publish', async (req, res) => {
       provisionInFlight(deployment);
     }
 
-    const fresh = await pool.query('SELECT * FROM deployments WHERE id = $1', [deployment.id]);
+    const fresh = await pool.query(
+      `SELECT id, status, status_detail, error, url, public_ip,
+              bundle_version, deployed_version, updated_at, created_at
+       FROM deployments WHERE id = $1`,
+      [deployment.id],
+    );
 
     return res.status(202).json({ deployment: publicView(fresh.rows[0]) });
   } catch (err) {

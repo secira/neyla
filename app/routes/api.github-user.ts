@@ -58,7 +58,6 @@ async function githubUserLoader({ request, context }: { request: Request; contex
     return json(
       {
         error: 'Failed to fetch GitHub user information',
-        details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 },
     );
@@ -195,13 +194,6 @@ async function githubUserAction({ request, context }: { request: Request; contex
       });
     }
 
-    if (action === 'get_token') {
-      // Return the GitHub token for git authentication
-      return json({
-        token: githubToken,
-      });
-    }
-
     if (action === 'search_repos') {
       if (!searchQuery) {
         return json({ error: 'Search query is required' }, { status: 400 });
@@ -274,7 +266,6 @@ async function githubUserAction({ request, context }: { request: Request; contex
     return json(
       {
         error: 'Failed to process GitHub request',
-        details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 },
     );

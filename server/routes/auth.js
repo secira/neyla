@@ -6,6 +6,7 @@ import pool from '../db.js';
 import { signToken, JWT_SECRET } from '../middleware/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { ensurePersonalOrganization } from '../lib/projectFoundation.js';
+import { decryptCredential, encryptCredential } from '../lib/credentialVault.js';
 
 const router = Router();
 
@@ -53,7 +54,7 @@ router.post('/signup', async (req, res) => {
     const token = signToken(user);
 
     res.cookie('neyla_token', token, COOKIE_OPTIONS);
-    return res.status(201).json({ user, token });
+    return res.status(201).json({ user });
   } catch (err) {
     console.error('Signup error:', err);
     return res.status(500).json({ error: 'Failed to create account' });
@@ -94,7 +95,7 @@ router.post('/login', async (req, res) => {
     const token = signToken(safeUser);
 
     res.cookie('neyla_token', token, COOKIE_OPTIONS);
-    return res.json({ user: safeUser, token });
+    return res.json({ user: safeUser });
   } catch (err) {
     console.error('Login error:', err);
     return res.status(500).json({ error: 'Login failed' });
@@ -181,7 +182,7 @@ router.get('/google/callback', async (req, res) => {
     const tokenData = await tokenRes.json();
 
     if (tokenData.error) {
-      console.error('Google token error:', tokenData);
+      console.error('Google token exchange failed:', tokenData.error || 'unknown provider error');
       return res.redirect('/auth/popup-success?auth_error=google_token_failed');
     }
 
@@ -206,8 +207,8 @@ router.get('/google/callback', async (req, res) => {
       userId = existingProvider.rows[0].user_id;
 
       await pool.query(
-        'UPDATE user_auth_providers SET access_token = $1, updated_at = NOW() WHERE provider = $2 AND provider_id = $3',
-        [tokenData.access_token, 'google', String(googleUser.sub)],
+        'UPDATE user_auth_providers SET access_token = NULL, access_token_ciphertext = $1, updated_at = NOW() WHERE provider = $2 AND provider_id = $3',
+        [encryptCredential(tokenData.access_token), 'google', String(googleUser.sub)],
       );
 
       if (googleUser.picture) {
@@ -236,8 +237,8 @@ router.get('/google/callback', async (req, res) => {
       }
 
       await pool.query(
-        'INSERT INTO user_auth_providers (user_id, provider, provider_id, access_token) VALUES ($1, $2, $3, $4)',
-        [userId, 'google', String(googleUser.sub), tokenData.access_token],
+        'INSERT INTO user_auth_providers (user_id, provider, provider_id, access_token_ciphertext) VALUES ($1, $2, $3, $4)',
+        [userId, 'google', String(googleUser.sub), encryptCredential(tokenData.access_token)],
       );
     }
 
@@ -250,7 +251,7 @@ router.get('/google/callback', async (req, res) => {
     res.cookie('neyla_token', token, COOKIE_OPTIONS);
     return res.redirect('/auth/popup-success');
   } catch (err) {
-    console.error('Google OAuth error:', err);
+    console.error('Google OAuth error:', err?.code || err?.name || 'unknown');
     return res.redirect('/auth/popup-success?auth_error=google_failed');
   }
 });
@@ -347,13 +348,13 @@ router.get('/github/callback', async (req, res) => {
 
       if (existingProvider.rows.length > 0) {
         await pool.query(
-          'UPDATE user_auth_providers SET access_token = $1, updated_at = NOW() WHERE provider = $2 AND provider_id = $3',
-          [tokenData.access_token, 'github', String(ghUser.id)],
+          'UPDATE user_auth_providers SET access_token = NULL, access_token_ciphertext = $1, updated_at = NOW() WHERE provider = $2 AND provider_id = $3',
+          [encryptCredential(tokenData.access_token), 'github', String(ghUser.id)],
         );
       } else {
         await pool.query(
-          'INSERT INTO user_auth_providers (user_id, provider, provider_id, access_token) VALUES ($1, $2, $3, $4)',
-          [linkedUserId, 'github', String(ghUser.id), tokenData.access_token],
+          'INSERT INTO user_auth_providers (user_id, provider, provider_id, access_token_ciphertext) VALUES ($1, $2, $3, $4)',
+          [linkedUserId, 'github', String(ghUser.id), encryptCredential(tokenData.access_token)],
         );
       }
 
@@ -367,8 +368,8 @@ router.get('/github/callback', async (req, res) => {
       userId = existingProvider.rows[0].user_id;
 
       await pool.query(
-        'UPDATE user_auth_providers SET access_token = $1, updated_at = NOW() WHERE provider = $2 AND provider_id = $3',
-        [tokenData.access_token, 'github', String(ghUser.id)],
+        'UPDATE user_auth_providers SET access_token = NULL, access_token_ciphertext = $1, updated_at = NOW() WHERE provider = $2 AND provider_id = $3',
+        [encryptCredential(tokenData.access_token), 'github', String(ghUser.id)],
       );
     } else {
       let existingUser = null;
@@ -389,8 +390,8 @@ router.get('/github/callback', async (req, res) => {
       }
 
       await pool.query(
-        'INSERT INTO user_auth_providers (user_id, provider, provider_id, access_token) VALUES ($1, $2, $3, $4)',
-        [userId, 'github', String(ghUser.id), tokenData.access_token],
+        'INSERT INTO user_auth_providers (user_id, provider, provider_id, access_token_ciphertext) VALUES ($1, $2, $3, $4)',
+        [userId, 'github', String(ghUser.id), encryptCredential(tokenData.access_token)],
       );
     }
 
@@ -406,7 +407,7 @@ router.get('/github/callback', async (req, res) => {
     res.cookie('neyla_token', token, COOKIE_OPTIONS);
     return res.redirect('/auth/popup-success');
   } catch (err) {
-    console.error('GitHub OAuth error:', err);
+    console.error('GitHub OAuth error:', err?.code || err?.name || 'unknown');
     return res.redirect('/auth/popup-success?auth_error=github_failed');
   }
 });
@@ -449,11 +450,11 @@ router.put('/settings', requireAuth, async (req, res) => {
 router.get('/github/status', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT access_token FROM user_auth_providers WHERE user_id = $1 AND provider = 'github'",
+      "SELECT access_token_ciphertext FROM user_auth_providers WHERE user_id = $1 AND provider = 'github'",
       [req.user.id],
     );
 
-    const accessToken = result.rows[0]?.access_token;
+    const accessToken = decryptCredential(result.rows[0]?.access_token_ciphertext);
 
     if (!accessToken) {
       return res.json({ connected: false });

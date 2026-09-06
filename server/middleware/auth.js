@@ -1,6 +1,13 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'neyla-dev-secret-change-in-production';
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  process.env.SESSION_SECRET ||
+  (process.env.NODE_ENV === 'production' ? null : 'neyla-dev-secret-change-in-production');
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET or SESSION_SECRET must be configured');
+}
 
 export function requireAuth(req, res, next) {
   const token = req.cookies?.neyla_token || req.headers.authorization?.replace('Bearer ', '');

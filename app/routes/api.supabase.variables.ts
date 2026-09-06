@@ -22,9 +22,14 @@ export async function action({ request }: ActionFunctionArgs) {
       return json({ error: `Failed to fetch API keys: ${response.statusText}` }, { status: response.status });
     }
 
-    const apiKeys = await response.json();
+    const apiKeys = (await response.json()) as Array<{ name?: string; api_key?: string }>;
+    const publicApiKeys = apiKeys.filter(
+      (key) => (key.name === 'anon' || key.name === 'public') && typeof key.api_key === 'string',
+    );
 
-    return json({ apiKeys });
+    // The Supabase service_role key is a server secret and must never cross
+    // this boundary. The browser only needs the publishable anon key.
+    return json({ apiKeys: publicApiKeys });
   } catch (error) {
     console.error('Error fetching project API keys:', error);
     return json({ error: error instanceof Error ? error.message : 'Unknown error occurred' }, { status: 500 });

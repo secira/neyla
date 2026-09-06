@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import pool from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
+import { decryptCredential } from '../lib/credentialVault.js';
 import { ensurePersonalOrganization } from '../lib/projectFoundation.js';
 
 const router = Router();
@@ -240,11 +241,11 @@ router.post('/:id/github-sync', async (req, res) => {
     }
 
     const tokenResult = await pool.query(
-      "SELECT access_token FROM user_auth_providers WHERE user_id = $1 AND provider = 'github'",
+      "SELECT access_token_ciphertext FROM user_auth_providers WHERE user_id = $1 AND provider = 'github'",
       [req.user.id],
     );
 
-    const token = tokenResult.rows[0]?.access_token;
+    const token = decryptCredential(tokenResult.rows[0]?.access_token_ciphertext);
 
     if (!token) {
       return res.status(403).json({ error: 'GitHub is not connected', code: 'github_not_connected' });
