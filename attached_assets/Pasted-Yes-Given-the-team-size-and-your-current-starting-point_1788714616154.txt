@@ -1,0 +1,2128 @@
+Yes. Given the team size and your current starting point, **I would deliberately make Neyla much smaller for Phase 1**.
+
+You should **not build the enterprise AI platform yet**. You should build a strong **AI application development platform for startups and SMEs**, prove that customers can create useful applications, and only then add Neyla Connect/MCP and enterprise governance.
+
+Your current idea is also technically sensible: the open-source Lovable-style foundation already gives you the basic conversational app-building workflow, while GitHub and deployment can become Neyla's first differentiators. Open-source AI builders already demonstrate the basic pattern of conversational building, live preview, Git-backed projects and publishing. ([GitHub][1])
+
+And Replit itself supports importing Lovable projects from GitHub and continuing development there, so your desired **Neyla → GitHub → customer hosting** workflow is a natural one. ([Replit Docs][2])
+
+## The Phase-1 Neyla product I would build
+
+### Position it as:
+
+# **Neyla — AI Application Development Platform**
+
+> **Build real business applications with AI. Own the code. Deploy anywhere.**
+
+For SMEs and startups:
+
+> **Describe your application. Neyla builds it. You own the code. Host it anywhere.**
+
+The four pillars should be:
+
+**Create → Preview → Own → Deploy**
+
+Not MCP.
+Not enterprise governance.
+Not agent orchestration.
+
+Those come later.
+
+---
+
+# 1. Define the Phase-1 scope very tightly
+
+Your first version should do only this:
+
+```text
+                    NEYLA
+                      │
+             ┌────────┴────────┐
+             │                 │
+          CREATE            IMPORT
+             │                 │
+       Natural Language    GitHub Repo
+             │                 │
+             └────────┬────────┘
+                      │
+                AI APP BUILDER
+                      │
+          ┌───────────┼───────────┐
+          │           │           │
+       Generate     Edit       Debug
+          │           │           │
+          └───────────┼───────────┘
+                      │
+                 LIVE PREVIEW
+                      │
+              ┌───────┴────────┐
+              │                │
+           GitHub          Neyla Host
+              │                │
+              ▼                ▼
+        Customer Host      Neyla Cloud
+```
+
+That's it.
+
+---
+
+# 2. Do NOT rewrite the underlying builder
+
+This is probably the most important engineering decision.
+
+You already have:
+
+> Basic Lovable open-source code + your customization.
+
+Don't spend three months rebuilding it.
+
+Treat the existing code as:
+
+### **Neyla Studio Engine**
+
+Then build your proprietary product around it.
+
+```text
+NEYLA PLATFORM
+│
+├── Neyla Website
+│
+├── Authentication
+│
+├── User Dashboard
+│
+├── Organizations
+│
+├── Projects
+│
+├── Billing
+│
+├── Project Management
+│
+├── GitHub Integration
+│
+├── Neyla Hosting
+│
+└── Neyla Studio
+       │
+       └── Existing Lovable-derived engine
+```
+
+This allows your 10-person team to concentrate on the customer experience rather than rebuilding an AI coding engine.
+
+---
+
+# 3. Phase 1 product hierarchy
+
+I would make the navigation extremely simple.
+
+```text
+NEYLA
+
+Dashboard
+
+Projects
+Templates
+
+────────────────
+
+Workspace
+  Members
+  Settings
+  Billing
+
+────────────────
+
+Developer
+  GitHub
+  Deployments
+```
+
+Inside a project:
+
+```text
+Project
+│
+├── Build
+├── Preview
+├── Code
+├── GitHub
+├── Deploy
+└── Settings
+```
+
+Don't introduce:
+
+* Agents
+* MCP
+* Policies
+* Governance
+* Tool registry
+* Enterprise controls
+* AI orchestration
+* Evaluation studio
+
+yet.
+
+Those are Phase 2/3.
+
+---
+
+# 4. STEP 1 — Create the Neyla project model
+
+This should be your first Replit task.
+
+You need a clean database model.
+
+At minimum:
+
+```text
+User
+ └── Organization
+       └── Project
+             ├── Project Files
+             ├── Conversations
+             ├── Versions
+             ├── GitHub Repository
+             └── Deployment
+```
+
+### Organization
+
+```text
+id
+name
+slug
+owner_id
+plan
+created_at
+```
+
+### User
+
+```text
+id
+name
+email
+avatar
+created_at
+```
+
+### Project
+
+```text
+id
+organization_id
+name
+description
+status
+framework
+repository_url
+deployment_url
+created_at
+updated_at
+```
+
+### Conversation
+
+```text
+id
+project_id
+user_id
+title
+created_at
+```
+
+### Message
+
+```text
+id
+conversation_id
+role
+content
+created_at
+```
+
+### Deployment
+
+```text
+id
+project_id
+provider
+environment
+url
+status
+created_at
+```
+
+Don't over-engineer this.
+
+---
+
+# 5. STEP 2 — Turn the existing UI into Neyla Studio
+
+Your existing Lovable-style interface should become:
+
+```text
+┌─────────────────────────────────────────────────────┐
+│ NEYLA     Project: My CRM        Preview  Deploy    │
+├───────────────┬─────────────────────┬───────────────┤
+│               │                     │               │
+│ Conversation  │                     │   Preview     │
+│               │     APPLICATION     │               │
+│ User:         │                     │               │
+│ Build me CRM  │                     │               │
+│               │                     │               │
+│ Neyla:        │                     │               │
+│ Building...   │                     │               │
+│               │                     │               │
+├───────────────┤                     │               │
+│ Ask Neyla...  │                     │               │
+└───────────────┴─────────────────────┴───────────────┘
+```
+
+The user experience should feel like:
+
+> "I have an AI developer working with me."
+
+Not:
+
+> "I am operating an AI coding infrastructure."
+
+---
+
+# 6. STEP 3 — Make project creation extremely simple
+
+Click:
+
+**New Project**
+
+Then:
+
+```text
+What do you want to build?
+
+┌─────────────────────────────────────────────┐
+│ Build a CRM for my sales team with...       │
+│                                             │
+└─────────────────────────────────────────────┘
+
+             [ Start Building ]
+```
+
+Then optional:
+
+### Start from
+
+* Blank application
+* CRM
+* Inventory
+* HR
+* Finance
+* Customer portal
+* Internal dashboard
+* Project management
+* Website
+* SaaS application
+
+Templates are important because they will dramatically reduce the amount of prompting required.
+
+---
+
+# 7. STEP 4 — Create a Neyla project specification
+
+This is where I would improve on the basic Lovable approach.
+
+Before generating code, Neyla should internally create a structured specification.
+
+For example:
+
+```json
+{
+  "application": {
+    "name": "Sales CRM",
+    "type": "business_application"
+  },
+  "features": [
+    "customers",
+    "leads",
+    "pipeline",
+    "tasks",
+    "dashboard"
+  ],
+  "roles": [
+    "admin",
+    "sales_manager",
+    "sales_rep"
+  ],
+  "data": [
+    "customers",
+    "leads",
+    "opportunities"
+  ]
+}
+```
+
+Then the AI uses that specification when generating code.
+
+This will become extremely important later.
+
+Instead of:
+
+```text
+Prompt → Code
+```
+
+build:
+
+```text
+Prompt
+ ↓
+Neyla App Specification
+ ↓
+Architecture
+ ↓
+Code
+ ↓
+Preview
+ ↓
+User feedback
+ ↓
+Code modification
+```
+
+That gives you much more control over the generated application.
+
+---
+
+# 8. STEP 5 — Introduce "Build Plan"
+
+Before making substantial changes, Neyla should optionally show:
+
+### **Neyla Build Plan**
+
+> I'll build your application in 5 steps:
+
+1. Create application structure
+2. Create database schema
+3. Build authentication
+4. Build dashboard and workflows
+5. Test and prepare deployment
+
+Then:
+
+**[Build Application]**
+
+This is a much better experience for business users than blindly watching code generation.
+
+---
+
+# 9. STEP 6 — Make the generated code a first-class product
+
+This is where I think Neyla can differentiate from many simple AI app builders.
+
+The customer should always know:
+
+> **This is my code.**
+
+Give them:
+
+### Code
+
+```text
+src/
+components/
+pages/
+api/
+database/
+public/
+package.json
+README.md
+```
+
+And:
+
+**Download ZIP**
+
+**Push to GitHub**
+
+**Clone Repository**
+
+Later:
+
+**Deploy elsewhere**
+
+Lovable's current workflow already emphasizes GitHub ownership, syncing and deployment flexibility, so this is an expected capability rather than something you should postpone. ([Lovable Documentation][3])
+
+---
+
+# 10. STEP 7 — GitHub should be P0
+
+I would actually prioritize GitHub **before Neyla hosting**.
+
+Why?
+
+Because your strongest early promise becomes:
+
+> **You never get locked into Neyla.**
+
+The flow:
+
+```text
+Create Neyla project
+        ↓
+Generate application
+        ↓
+Connect GitHub
+        ↓
+Neyla creates repository
+        ↓
+Every approved change
+        ↓
+Commit
+        ↓
+Customer owns repository
+```
+
+This is extremely important for SME/startup customers.
+
+And it gives you a natural exit path:
+
+```text
+Neyla
+  ↓
+GitHub
+  ↓
+Vercel / Netlify / AWS / Azure / GCP / own server
+```
+
+That makes Neyla much easier to trust.
+
+---
+
+# 11. STEP 8 — Add Neyla Hosting second
+
+Once GitHub works, add:
+
+# **Deploy to Neyla**
+
+User clicks:
+
+**Deploy**
+
+Neyla:
+
+```text
+Build
+ ↓
+Test
+ ↓
+Package
+ ↓
+Deploy
+ ↓
+Generate URL
+```
+
+Example:
+
+```text
+mycrm.neyla.app
+```
+
+Then eventually:
+
+```text
+crm.company.com
+```
+
+But don't build a giant cloud platform.
+
+Initially you need only:
+
+* build
+* deploy
+* environment variables
+* logs
+* restart
+* custom domain
+
+That's enough.
+
+---
+
+# 12. STEP 9 — Create a deployment abstraction
+
+Don't hard-code Neyla hosting into the application engine.
+
+Create:
+
+```text
+DeploymentProvider
+```
+
+with:
+
+```text
+deploy()
+build()
+logs()
+restart()
+status()
+destroy()
+```
+
+Then:
+
+```text
+Neyla Deployment
+Vercel Deployment
+Netlify Deployment
+AWS Deployment
+Azure Deployment
+```
+
+can eventually implement the same interface.
+
+This will save you a lot of pain later.
+
+---
+
+# 13. STEP 10 — Add "Import Existing GitHub Project"
+
+This should come surprisingly early.
+
+User:
+
+**Import Project**
+
+→ Connect GitHub
+
+→ Select repository
+
+→ Neyla analyzes project
+
+→ Project appears in Neyla Studio.
+
+Then:
+
+> "Add customer authentication."
+
+Neyla modifies the existing application.
+
+That changes Neyla from:
+
+> AI app generator
+
+into:
+
+# **AI application development environment**
+
+That's much more valuable.
+
+Replit's own import workflow already treats GitHub repositories as a first-class entry point for continued AI-assisted development. ([Replit Docs][2])
+
+---
+
+# 14. STEP 11 — Build the "Neyla Context"
+
+One major problem with AI coding tools is context.
+
+For every project, Neyla should maintain:
+
+```text
+PROJECT CONTEXT
+
+Application description
+Architecture
+Database schema
+Routes
+Components
+Dependencies
+Environment variables
+User roles
+Business rules
+Previous decisions
+Known issues
+```
+
+Then every AI request gets relevant project context.
+
+For example:
+
+> "Add a customer approval workflow."
+
+Neyla knows:
+
+* existing customer table
+* existing user roles
+* existing authentication
+* existing UI components
+* existing API architecture
+
+This will improve consistency significantly.
+
+---
+
+# 15. STEP 12 — Add Git-based versioning
+
+Don't create your own complicated version control system.
+
+Use Git.
+
+Every meaningful change:
+
+```text
+Version 1
+Version 2
+Version 3
+```
+
+Internally:
+
+```text
+Git commit
+```
+
+User interface:
+
+```text
+Versions
+
+● v12 — Added CRM dashboard
+● v11 — Added authentication
+● v10 — Added customer management
+● v9  — Initial application
+```
+
+Then:
+
+**Restore**
+
+This is much easier to implement and maintain.
+
+---
+
+# 16. STEP 13 — Add AI model abstraction
+
+Do not hard-wire Neyla to one AI provider.
+
+Create:
+
+```text
+Neyla AI Gateway
+```
+
+Initially:
+
+```text
+OpenAI
+Anthropic
+Gemini
+```
+
+Potentially later:
+
+```text
+Open-source models
+Customer API keys
+Enterprise models
+```
+
+Your internal interface should look conceptually like:
+
+```text
+generate()
+edit()
+analyze()
+debug()
+explain()
+```
+
+The rest of Neyla doesn't need to know which model performed the task.
+
+---
+
+# 17. STEP 14 — Build a simple project quality system
+
+Before deployment:
+
+### Neyla Check
+
+```text
+✓ Build succeeds
+✓ Dependencies resolved
+✓ No obvious TypeScript errors
+✓ Routes valid
+✓ Environment variables identified
+✓ Database configuration valid
+✓ Application starts
+```
+
+Then:
+
+# **Ready to Deploy**
+
+This is a very important feature for SMEs.
+
+The user doesn't necessarily understand:
+
+> "npm build failed because..."
+
+They understand:
+
+> **Neyla found 3 issues that must be fixed before deployment.**
+
+---
+
+# 18. STEP 15 — Make templates your growth engine
+
+Don't try to build 100 templates.
+
+Start with around **10**.
+
+I'd choose:
+
+### SME
+
+1. CRM
+2. Inventory
+3. HR management
+4. Expense management
+5. Customer support
+6. Project management
+
+### Startup
+
+7. SaaS dashboard
+8. Customer portal
+9. Admin dashboard
+10. Internal operations app
+
+Each template should have:
+
+```text
+UI
+Database
+Authentication
+Roles
+Basic workflows
+Sample data
+AI instructions
+```
+
+This gives users a huge head start.
+
+---
+
+# 19. What NOT to build in Phase 1
+
+This is where you save your team.
+
+### Don't build yet:
+
+❌ MCP marketplace
+❌ MCP registry
+❌ Enterprise agent governance
+❌ complex policy engine
+❌ enterprise SSO
+❌ SCIM
+❌ multi-region infrastructure
+❌ private deployment
+❌ Kubernetes platform
+❌ advanced FinOps
+❌ AI evaluation studio
+❌ enterprise compliance dashboard
+❌ dozens of connectors
+❌ autonomous agents
+❌ complicated workflow orchestration
+
+You already know MCP is something you want to launch later. **Keep it completely outside the Phase-1 critical path.**
+
+---
+
+# 20. Your 10-person team
+
+With 10 people, I'd roughly organize them as:
+
+### Team A — Core Platform: 3
+
+* existing app builder
+* AI generation
+* project management
+* code engine
+
+### Team B — Platform: 2
+
+* database
+* authentication
+* organizations
+* billing
+* project storage
+
+### Team C — GitHub & Deployment: 2
+
+* GitHub OAuth
+* repositories
+* commits
+* deployment
+* hosting
+
+### Team D — UX/Product: 2
+
+* Neyla UI
+* templates
+* onboarding
+* project experience
+
+### Team E — DevOps/QA: 1
+
+* infrastructure
+* monitoring
+* CI/CD
+* security
+* testing
+
+Avoid creating too many microservices. **A modular monolith is probably the right choice for this stage.**
+
+---
+
+# 21. Your first 12-week roadmap
+
+## Weeks 1–2 — Stabilize the engine
+
+**Goal:** Existing Lovable-derived application works reliably as Neyla Studio.
+
+Build:
+
+* Neyla branding
+* authentication
+* project creation
+* project persistence
+* conversation persistence
+* basic database
+
+**Do not add major features yet.**
+
+---
+
+## Weeks 3–4 — Project system
+
+Build:
+
+* dashboard
+* projects
+* new project
+* templates
+* project settings
+* project context
+* build history
+* versions
+
+At the end:
+
+> User can create and manage multiple applications.
+
+---
+
+## Weeks 5–6 — GitHub
+
+Build:
+
+* GitHub OAuth
+* connect GitHub
+* create repository
+* push project
+* commit changes
+* pull changes
+* disconnect
+* repository status
+
+At the end:
+
+> **Neyla → GitHub works.**
+
+This is your first major milestone.
+
+---
+
+## Weeks 7–8 — Deployment
+
+Build:
+
+* Build
+* Deploy
+* deployment status
+* logs
+* environment variables
+* application URL
+* redeploy
+* rollback
+
+First:
+
+> **Neyla Hosting**
+
+Then:
+
+> **External hosting**
+
+---
+
+## Weeks 9–10 — Quality + templates
+
+Build:
+
+* pre-deployment checks
+* error recovery
+* 5–10 templates
+* sample data
+* project onboarding
+* improved AI context
+
+---
+
+## Weeks 11–12 — Beta
+
+Get:
+
+### 10–20 SMEs/startups
+
+and measure:
+
+```text
+New projects
+Projects completed
+Apps deployed
+GitHub connections
+Deployments
+Time to first application
+Time to first deployment
+AI generations/project
+Failed builds
+Weekly active builders
+```
+
+Don't optimize for registrations.
+
+Optimize for:
+
+# **Application successfully built and deployed.**
+
+---
+
+# 22. Your Phase-1 product flow
+
+This should be the complete experience:
+
+```text
+                  NEYLA
+                    │
+             Create account
+                    │
+                    ▼
+             Create project
+                    │
+                    ▼
+        "What do you want to build?"
+                    │
+                    ▼
+             Neyla Build Plan
+                    │
+                    ▼
+              AI generates
+                    │
+                    ▼
+             Live application
+                    │
+              ┌─────┴─────┐
+              │           │
+           Iterate       Preview
+              │           │
+              └─────┬─────┘
+                    │
+                    ▼
+              Neyla Check
+                    │
+              ┌─────┴─────┐
+              │           │
+           GitHub       Deploy
+              │           │
+              ▼           ▼
+        Customer repo  Neyla Cloud
+              │           │
+              └─────┬─────┘
+                    ▼
+             Production App
+```
+
+That's your **MVP**.
+
+---
+
+# 23. And your positioning becomes much clearer
+
+For now, forget the enterprise positioning we discussed earlier.
+
+Your website should say:
+
+# **Neyla**
+
+## **Build business applications with AI.**
+
+> From idea to working application in minutes. Build with AI, own your source code, connect GitHub, and deploy anywhere.
+
+Then:
+
+### **Describe**
+
+Tell Neyla what you want.
+
+### **Build**
+
+Neyla creates the application.
+
+### **Refine**
+
+Iterate through conversation.
+
+### **Own**
+
+Your code stays yours and can be pushed to GitHub.
+
+### **Deploy**
+
+Host with Neyla or deploy elsewhere.
+
+---
+
+# 24. Then the long-term roadmap becomes very clean
+
+You don't need to throw away today's architecture.
+
+You simply layer the future on top:
+
+```text
+PHASE 1
+NEYLA APP BUILDER
+       │
+       ├── AI development
+       ├── GitHub
+       └── Hosting
+
+
+PHASE 2
+NEYLA CONNECT
+       │
+       ├── MCP
+       ├── APIs
+       ├── Databases
+       └── Enterprise connectors
+
+
+PHASE 3
+NEYLA AI WORKFLOWS
+       │
+       ├── Agents
+       ├── Automations
+       └── Business workflows
+
+
+PHASE 4
+NEYLA CONTROL
+       │
+       ├── Identity
+       ├── Permissions
+       ├── Policies
+       ├── Audit
+       └── Governance
+
+
+PHASE 5
+NEYLA ENTERPRISE
+       │
+       ├── Private deployment
+       ├── VPC
+       ├── SSO
+       ├── Compliance
+       └── Global enterprise
+```
+
+This is much more realistic for a 10-person company.
+
+---
+
+# 25. The Replit prompt I would use
+
+I would **not give Replit one enormous 50-page specification and ask it to implement everything**.
+
+Give it a sequence of controlled implementation prompts.
+
+Start with this:
+
+# Neyla Phase 1 — AI Application Development Platform
+
+## Objective
+
+Transform the existing Lovable-derived open-source application builder into the first version of **Neyla**, an AI application development platform for startups and SMEs.
+
+Do NOT build MCP, enterprise governance, enterprise SSO, agent orchestration, enterprise policy engines, or advanced enterprise integrations in this phase.
+
+The Phase-1 product must focus on:
+
+1. Creating applications using natural language
+2. Iteratively modifying applications using AI
+3. Live application preview
+4. Persistent projects
+5. Project/version management
+6. GitHub integration
+7. Exporting/owning source code
+8. Deploying applications to Neyla hosting
+9. Supporting deployment/export to external hosting
+10. Templates for common SME/startup applications
+
+## Product positioning
+
+Neyla is:
+
+> Build business applications with AI. Own the code. Deploy anywhere.
+
+Primary users:
+
+* Startups
+* Small businesses
+* Medium businesses
+* Founders
+* Operations teams
+* Product managers
+* Developers
+* Internal IT teams
+
+Do not position Phase 1 as an enterprise AI governance platform.
+
+## Core product flow
+
+User:
+
+1. Creates Neyla account
+2. Creates organization/workspace
+3. Creates project
+4. Describes application
+5. Neyla creates a structured application specification
+6. Neyla generates application code
+7. User sees live preview
+8. User iterates through natural-language instructions
+9. Neyla modifies the code
+10. User tests application
+11. Neyla runs pre-deployment checks
+12. User connects GitHub
+13. Neyla creates/syncs repository
+14. User can continue development through GitHub
+15. User can deploy application to Neyla
+16. User can eventually deploy the same repository elsewhere
+
+## Architecture principle
+
+Do not rewrite the existing application-builder engine unnecessarily.
+
+Treat the existing Lovable-derived implementation as the initial **Neyla Studio Engine**.
+
+Build Neyla product functionality around it.
+
+Maintain a clean separation between:
+
+* inherited/open-source components
+* Neyla proprietary components
+* external services
+* deployment infrastructure
+
+The architecture must allow the underlying AI/code-generation engine to be replaced in the future without rewriting the Neyla product layer.
+
+## Initial application architecture
+
+Use a modular monolith unless the existing codebase requires otherwise.
+
+Avoid unnecessary microservices.
+
+Recommended logical modules:
+
+/neyla
+/auth
+/organizations
+/projects
+/studio
+/ai
+/context
+/templates
+/github
+/deployments
+/versions
+/billing
+/notifications
+
+Keep existing Lovable-derived code isolated where practical.
+
+## Data model
+
+Implement the following core entities.
+
+### User
+
+Fields:
+
+* id
+* name
+* email
+* avatar
+* created_at
+* updated_at
+
+### Organization
+
+Fields:
+
+* id
+* name
+* slug
+* owner_id
+* plan
+* created_at
+* updated_at
+
+### OrganizationMember
+
+Fields:
+
+* id
+* organization_id
+* user_id
+* role
+* created_at
+
+Roles initially:
+
+* owner
+* admin
+* member
+
+### Project
+
+Fields:
+
+* id
+* organization_id
+* name
+* slug
+* description
+* framework
+* status
+* repository_url
+* deployment_url
+* created_at
+* updated_at
+
+### Conversation
+
+Fields:
+
+* id
+* project_id
+* user_id
+* title
+* created_at
+* updated_at
+
+### Message
+
+Fields:
+
+* id
+* conversation_id
+* role
+* content
+* created_at
+
+### ProjectContext
+
+Store:
+
+* application description
+* application type
+* features
+* pages
+* entities
+* database schema
+* user roles
+* business rules
+* technical architecture
+* dependencies
+* known issues
+* AI decisions
+* project instructions
+
+The project context must be available to the AI when modifying the application.
+
+### ProjectVersion
+
+Fields:
+
+* id
+* project_id
+* version_number
+* description
+* git_commit
+* created_by
+* created_at
+
+### GitHubConnection
+
+Fields:
+
+* id
+* organization_id
+* project_id
+* github_account
+* repository_owner
+* repository_name
+* repository_url
+* default_branch
+* connection_status
+* created_at
+* updated_at
+
+Do not store GitHub access tokens in the database as plain text.
+
+Use secure secret storage.
+
+### Deployment
+
+Fields:
+
+* id
+* project_id
+* provider
+* environment
+* deployment_url
+* status
+* build_id
+* created_at
+* updated_at
+
+Initial environments:
+
+* preview
+* production
+
+## Main application screens
+
+### 1. Landing page
+
+Position Neyla as:
+
+Build business applications with AI.
+
+Supporting message:
+
+Describe your application, build it with AI, own the source code, connect GitHub, and deploy anywhere.
+
+Primary CTA:
+
+Start Building
+
+Secondary CTA:
+
+Explore Templates
+
+### 2. Authentication
+
+Support:
+
+* Email/password initially
+* Google login if already supported by existing architecture
+
+Do not build enterprise SSO in Phase 1.
+
+### 3. Dashboard
+
+Display:
+
+* Recent projects
+* Create project
+* Templates
+* GitHub connections
+* Recent deployments
+
+### 4. New Project
+
+Provide:
+
+* Blank project
+* Template selection
+* Natural-language project description
+
+Primary CTA:
+
+Start Building
+
+### 5. Project Studio
+
+Three primary areas:
+
+LEFT:
+
+* Conversation
+* Build instructions
+* Project context
+
+CENTER:
+
+* Live application preview
+
+RIGHT:
+
+* Files/code
+* Build status
+* Errors
+* Changes
+
+Top navigation:
+
+* Build
+* Preview
+* Code
+* GitHub
+* Deploy
+* Settings
+
+### 6. Project Settings
+
+Include:
+
+* Project name
+* Description
+* Organization
+* Repository
+* Deployment
+* Environment variables
+* Delete project
+
+## Application generation workflow
+
+Do not simply send raw user prompts directly to code generation.
+
+Implement the conceptual pipeline:
+
+User Prompt
+
+↓
+
+Application Specification
+
+↓
+
+Technical Plan
+
+↓
+
+Code Generation
+
+↓
+
+Build
+
+↓
+
+Preview
+
+↓
+
+Validation
+
+↓
+
+User Feedback
+
+↓
+
+Code Modification
+
+The Application Specification should capture:
+
+* application purpose
+* application type
+* required pages
+* features
+* entities
+* roles
+* workflows
+* integrations
+* technical requirements
+
+Persist this specification as part of ProjectContext.
+
+## AI editing behavior
+
+Users must be able to say things like:
+
+* Add a customer dashboard
+* Add authentication
+* Add a search field
+* Change the dashboard layout
+* Add an approval workflow
+* Fix this error
+* Add a reports page
+* Change the colors
+* Add CSV export
+
+The AI must understand the existing application before modifying it.
+
+Do not unnecessarily recreate the application from scratch.
+
+Prefer incremental changes.
+
+Before making large architectural changes, analyze the current project structure.
+
+## Build Plan
+
+For significant requests, Neyla should create a Build Plan.
+
+Example:
+
+Build Plan
+
+1. Create customer database model
+2. Add customer API
+3. Add customer list
+4. Add customer details
+5. Add dashboard metrics
+6. Test application
+
+The user can approve the plan.
+
+The AI then executes the steps.
+
+For small UI changes, the system can directly execute without displaying a full plan.
+
+## Live preview
+
+Maintain the current live preview capability from the existing application-builder engine.
+
+The preview must update after successful code changes.
+
+Display:
+
+* Build status
+* Runtime status
+* Errors
+* Refresh
+* Open in new tab
+
+## Error handling
+
+When code generation causes an error:
+
+1. Capture the error
+2. Show a human-readable explanation
+3. Send the error and relevant project context back to the AI
+4. Attempt an automatic fix
+5. Rebuild
+6. Repeat only within a safe retry limit
+7. Ask the user for intervention when automatic recovery fails
+
+Never create an infinite repair loop.
+
+## Neyla Check
+
+Before deployment, run:
+
+* dependency validation
+* build validation
+* TypeScript validation if applicable
+* route validation
+* environment-variable validation
+* application startup validation
+* basic security checks
+* missing configuration checks
+
+Show:
+
+Neyla Check
+
+✓ Build successful
+✓ Dependencies valid
+✓ Environment configured
+✓ Application starts
+✓ No blocking errors
+
+Then:
+
+Ready to Deploy
+
+If errors exist:
+
+3 issues need attention
+
+Provide actionable explanations.
+
+## GitHub integration
+
+GitHub is a Phase-1 priority.
+
+Support:
+
+1. Connect GitHub
+2. Authorize account
+3. Select/create repository
+4. Initialize repository
+5. Push project
+6. Commit changes
+7. Push subsequent changes
+8. Pull changes
+9. Show repository URL
+10. Disconnect repository
+
+The user's GitHub repository should contain the actual application source code.
+
+Do not hide the generated application behind a proprietary runtime.
+
+The customer must be able to clone the repository and continue development outside Neyla.
+
+Use secure OAuth/token storage.
+
+Never expose GitHub credentials to the generated application.
+
+## Git/versioning
+
+Use Git wherever practical rather than building a custom version-control system.
+
+Expose a simplified user interface:
+
+Versions
+
+v1 — Initial application
+v2 — Added authentication
+v3 — Added dashboard
+v4 — Added reporting
+
+Allow:
+
+* View version
+* Restore version
+* Create checkpoint
+
+Internally associate versions with Git commits where possible.
+
+## Neyla Hosting
+
+Implement a provider abstraction:
+
+DeploymentProvider
+
+Required operations:
+
+* build
+* deploy
+* status
+* logs
+* restart
+* destroy
+
+Implement the first provider as:
+
+Neyla Hosting
+
+Do not tightly couple project code to the hosting implementation.
+
+Future providers may include:
+
+* Vercel
+* Netlify
+* AWS
+* Azure
+* Google Cloud
+* customer infrastructure
+
+## Neyla deployment
+
+Initial flow:
+
+User clicks Deploy
+
+↓
+
+Neyla Check
+
+↓
+
+Build
+
+↓
+
+Create deployment
+
+↓
+
+Deploy
+
+↓
+
+Generate URL
+
+Example:
+
+[https://project.neyla.app](https://project.neyla.app)
+
+Display:
+
+* deployment status
+* URL
+* build logs
+* deployment logs
+* redeploy
+* rollback
+
+## Environment variables
+
+Support:
+
+* development
+* preview
+* production
+
+Store secrets securely.
+
+Never expose server-side secrets in browser code.
+
+Clearly distinguish:
+
+PUBLIC variables
+
+and
+
+SECRET variables.
+
+## Templates
+
+Create an initial template system.
+
+Start with approximately 10 templates:
+
+1. CRM
+2. Inventory management
+3. HR management
+4. Expense management
+5. Customer support
+6. Project management
+7. SaaS dashboard
+8. Customer portal
+9. Admin dashboard
+10. Internal operations application
+
+Each template should contain:
+
+* starter UI
+* database structure where applicable
+* authentication
+* basic roles
+* sample data
+* initial project context
+* AI instructions
+
+Templates should be editable after creation.
+
+## Import existing GitHub project
+
+Implement after the core GitHub export workflow is stable.
+
+User flow:
+
+Import from GitHub
+
+↓
+
+Select repository
+
+↓
+
+Analyze project
+
+↓
+
+Create Neyla Project
+
+↓
+
+Index project structure
+
+↓
+
+Create ProjectContext
+
+↓
+
+Open in Neyla Studio
+
+The user should then be able to ask Neyla to modify the existing application.
+
+## Security principles
+
+Phase 1 must include basic security.
+
+Required:
+
+* secure authentication
+* organization isolation
+* project-level authorization
+* secure secret storage
+* GitHub OAuth security
+* server-side API keys
+* rate limiting for expensive AI operations
+* input validation
+* output validation
+* audit logs for important platform operations
+
+Do not build enterprise compliance controls yet.
+
+## Billing
+
+Create a billing abstraction but keep the initial implementation simple.
+
+Possible plans:
+
+Free
+Starter
+Pro
+Business
+
+Do not overbuild billing before product-market validation.
+
+Track usage internally:
+
+* AI requests
+* tokens if available
+* projects
+* deployments
+* storage
+* build minutes
+
+## Analytics
+
+Track:
+
+* signup
+* project creation
+* first prompt
+* first successful generation
+* first preview
+* GitHub connection
+* first deployment
+* successful deployment
+* project retention
+* AI requests per project
+* build failures
+
+The key product metric is:
+
+Successful applications built and deployed.
+
+## Explicitly out of scope for Phase 1
+
+Do NOT implement:
+
+* MCP
+* MCP marketplace
+* MCP server registry
+* IBM MCP integration
+* enterprise agent governance
+* complex policy engine
+* enterprise SSO
+* SCIM
+* private cloud deployment
+* VPC deployment
+* multi-region infrastructure
+* advanced AI agents
+* autonomous business workflows
+* enterprise compliance center
+* complex FinOps
+* advanced observability platform
+
+These will be future phases.
+
+## Future architecture
+
+Design interfaces so future capabilities can be added without major rewrites:
+
+Neyla Connect
+
+* MCP
+* REST
+* GraphQL
+* databases
+* enterprise connectors
+
+Neyla Agents
+
+* agents
+* workflows
+* automations
+
+Neyla Control
+
+* identity
+* policies
+* permissions
+* approvals
+* audit
+
+Neyla Enterprise
+
+* SSO
+* SCIM
+* private deployment
+* VPC
+* compliance
+* data residency
+
+Do not implement these now.
+
+## Engineering rules
+
+1. Do not rewrite working existing functionality without a clear reason.
+2. Preserve existing application-builder functionality.
+3. Make changes incrementally.
+4. Run the application after each significant change.
+5. Fix existing errors before adding unrelated functionality.
+6. Do not introduce unnecessary dependencies.
+7. Keep the architecture modular.
+8. Keep open-source-derived code clearly separated from Neyla proprietary code.
+9. Never hard-code API keys or secrets.
+10. Never expose server-side credentials to generated applications.
+11. Add automated tests for critical platform functionality.
+12. Maintain clear README and architecture documentation.
+13. Do not implement Phase-2 features prematurely.
+
+## Implementation order
+
+Implement in this exact order:
+
+### Phase 1A
+
+* Inspect existing codebase
+* Document architecture
+* Identify existing Lovable-derived functionality
+* Run application
+* Fix blocking issues
+* Create Neyla branding
+
+### Phase 1B
+
+* Authentication
+* Organizations
+* Projects
+* Project persistence
+* Dashboard
+
+### Phase 1C
+
+* Studio
+* Project Context
+* Build Plan
+* AI generation/editing
+* Live preview
+* Error recovery
+
+### Phase 1D
+
+* GitHub OAuth
+* Repository creation
+* Push
+* Commit
+* Pull
+* Version history
+
+### Phase 1E
+
+* Neyla deployment abstraction
+* Neyla hosting
+* Deployment status
+* Logs
+* Environment variables
+* Custom domain architecture
+
+### Phase 1F
+
+* Neyla Check
+* Templates
+* Analytics
+* Billing foundation
+* Production hardening
+
+### Phase 1G
+
+* Import existing GitHub repository
+* Analyze repository
+* Continue AI development
+
+## Important Replit execution instruction
+
+Do not attempt to implement the entire specification in one operation.
+
+Work in small milestones.
+
+Before modifying code:
+
+1. Inspect the repository.
+2. Identify the existing architecture.
+3. Identify which functionality already exists.
+4. Reuse existing functionality wherever possible.
+5. Explain which files/modules will be modified.
+6. Implement only the current milestone.
+7. Run tests/build.
+8. Fix errors.
+9. Verify the application.
+10. Only then proceed to the next milestone.
+
+At every stage, maintain backward compatibility with existing working functionality.
+
+The first task is NOT to implement features.
+
+The first task is:
+
+> **Audit the existing Neyla codebase and produce a technical architecture report identifying what already works, what can be reused, what must be refactored, and the minimum changes required to implement Phase 1. Do not modify code until the audit is complete.**
+
+---
+
+## One final recommendation
+
+I would make **Neyla.ai** the application-building product and **Neyla.dev** the developer/integration platform later, exactly along the direction you're considering.
+
+For now:
+
+**Neyla.ai**
+
+> **AI Application Development**
+
+**Neyla.dev**
+
+> **Developer platform / MCP / integrations — coming later**
+
+That gives you a very clean evolution:
+
+**Today**
+
+> "Neyla helps startups and SMEs build real applications with AI."
+
+**Later**
+
+> "Neyla helps businesses connect those applications to their systems."
+
+**Eventually**
+
+> "Neyla provides the execution and governance layer for enterprise AI."
+
+That is a much more achievable journey for a 10-person company than trying to launch the entire enterprise platform now. And the GitHub/code-ownership model is particularly important: current AI application-building workflows already train customers to expect editable code and GitHub portability, so Neyla should make that a foundational promise rather than an afterthought. ([Lovable Documentation][3])
+
+[1]: https://github.com/freestyle-sh/Adorable?utm_source=chatgpt.com "GitHub - freestyle-sh/Adorable: Open Source Lovable · GitHub"
+[2]: https://docs.replit.com/build/import-from-providers?utm_source=chatgpt.com "Replit Docs"
+[3]: https://docs.lovable.dev/integrations/github?utm_source=chatgpt.com "Connect your project to GitHub - Lovable Documentation"
