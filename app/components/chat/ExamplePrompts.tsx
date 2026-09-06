@@ -1,23 +1,27 @@
 import React from 'react';
 
 const EXAMPLE_PROMPTS = [
-  { text: 'Build a wedding invitation website with RSVP form', icon: 'i-ph:heart-duotone' },
-  { text: 'Create a restaurant menu page for a biryani shop', icon: 'i-ph:fork-knife-duotone' },
-  { text: 'Make a portfolio site for a Bollywood dancer', icon: 'i-ph:star-duotone' },
-  { text: 'Build a cricket score tracker app', icon: 'i-ph:trophy-duotone' },
-  { text: 'Create a todo app in React using Tailwind', icon: 'i-ph:check-square-duotone' },
-  { text: 'Build a landing page for a startup', icon: 'i-ph:rocket-launch-duotone' },
-  { text: 'Make a simple e-commerce product page', icon: 'i-ph:shopping-bag-duotone' },
-  { text: 'Create a festival greeting card generator', icon: 'i-ph:confetti-duotone' },
+  {
+    text: 'Build a website for my tiffin service with a menu, WhatsApp button, and order form',
+    icon: 'i-ph:fork-knife-duotone',
+  },
+  {
+    text: 'Create a portfolio for my design studio with work samples and a contact form',
+    icon: 'i-ph:palette-duotone',
+  },
+  { text: 'Make a wedding invitation page with event details, RSVP form, and map', icon: 'i-ph:heart-duotone' },
+  { text: 'Build a product catalog for my saree business with enquiry buttons', icon: 'i-ph:shopping-bag-duotone' },
+  { text: 'Create a coaching class website with courses, timetable, and enquiry form', icon: 'i-ph:student-duotone' },
+  { text: 'Make a festival greeting page I can share with family on WhatsApp', icon: 'i-ph:confetti-duotone' },
 ];
 
 const CATEGORIES = [
-  { label: 'Website', icon: 'i-ph:globe-duotone' },
+  { label: 'Business Website', icon: 'i-ph:storefront-duotone' },
   { label: 'Portfolio', icon: 'i-ph:user-circle-duotone' },
-  { label: 'App', icon: 'i-ph:device-mobile-duotone' },
-  { label: 'Game', icon: 'i-ph:game-controller-duotone' },
+  { label: 'Online Store', icon: 'i-ph:shopping-bag-duotone' },
+  { label: 'Event Page', icon: 'i-ph:calendar-heart-duotone' },
+  { label: 'Mobile App', icon: 'i-ph:device-mobile-duotone' },
   { label: 'Dashboard', icon: 'i-ph:chart-bar-duotone' },
-  { label: 'Landing Page', icon: 'i-ph:layout-duotone' },
 ];
 
 export function ExamplePrompts(sendMessage?: { (event: React.UIEvent, messageInput?: string): void | undefined }) {
