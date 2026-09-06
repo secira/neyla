@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from '@remix-run/react';
 import { useStore } from '@nanostores/react';
 import { authUserAtom, authLoadingAtom, fetchCurrentUser } from '~/lib/stores/auth';
-import { listUserWorkspaces } from '~/lib/persistence/serverSync';
+import { listUserProjects } from '~/lib/persistence/serverSync';
 
 export const meta: MetaFunction = () => [
   { title: 'My Projects — Neyla' },
@@ -12,8 +12,9 @@ export const meta: MetaFunction = () => [
 
 export const loader = () => json({});
 
-type Workspace = {
+type Project = {
   id: string;
+  workspace_id: string;
   url_id: string;
   title: string;
   description?: string;
@@ -56,7 +57,7 @@ export default function Projects() {
   const navigate = useNavigate();
   const user = useStore(authUserAtom);
   const loading = useStore(authLoadingAtom);
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [wsLoading, setWsLoading] = useState(true);
 
   useEffect(() => {
@@ -71,8 +72,8 @@ export default function Projects() {
 
   useEffect(() => {
     if (user) {
-      listUserWorkspaces().then((list) => {
-        setWorkspaces(list as Workspace[]);
+      listUserProjects().then((list) => {
+        setProjects(list as Project[]);
         setWsLoading(false);
       });
     }
@@ -119,9 +120,9 @@ export default function Projects() {
           <p className="text-sm text-bolt-elements-textSecondary mt-1">
             {wsLoading
               ? 'Loading…'
-              : workspaces.length === 0
+              : projects.length === 0
                 ? 'No projects yet — start one below'
-                : `${workspaces.length} project${workspaces.length !== 1 ? 's' : ''} • synced across all your devices`}
+                : `${projects.length} project${projects.length !== 1 ? 's' : ''} • synced across all your devices`}
           </p>
         </div>
 
@@ -131,7 +132,7 @@ export default function Projects() {
               <div key={i} className="h-36 rounded-xl border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 animate-pulse" />
             ))}
           </div>
-        ) : workspaces.length === 0 ? (
+        ) : projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="i-ph:folder-open-duotone text-5xl text-bolt-elements-textTertiary mb-4" />
             <h2 className="text-lg font-semibold text-bolt-elements-textPrimary mb-2">Start your first project</h2>
@@ -149,10 +150,10 @@ export default function Projects() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {workspaces.map((ws) => (
+            {projects.map((project) => (
               <a
-                key={ws.id}
-                href={`/chat/${ws.url_id}`}
+                key={project.id}
+                href={`/chat/${project.url_id}`}
                 className="group flex flex-col rounded-xl border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 hover:border-orange-500/40 hover:shadow-lg transition-all p-5"
               >
                 <div className="flex items-start justify-between gap-2 mb-3">
@@ -170,14 +171,14 @@ export default function Projects() {
                   </span>
                 </div>
                 <h3 className="font-semibold text-bolt-elements-textPrimary text-sm mb-1 line-clamp-2 leading-snug">
-                  {ws.title || 'Untitled project'}
+                  {project.title || 'Untitled project'}
                 </h3>
-                {ws.description && (
-                  <p className="text-xs text-bolt-elements-textSecondary truncate mb-1">{ws.description}</p>
+                {project.description && (
+                  <p className="text-xs text-bolt-elements-textSecondary truncate mb-1">{project.description}</p>
                 )}
                 <div className="mt-auto pt-3 border-t border-bolt-elements-borderColor/40 flex items-center gap-1.5 text-xs text-bolt-elements-textTertiary">
                   <div className="i-ph:clock text-xs" />
-                  {timeAgo(ws.updated_at)}
+                  {timeAgo(project.updated_at)}
                 </div>
               </a>
             ))}

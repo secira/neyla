@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import pool from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
+import { ensurePersonalOrganization } from '../lib/projectFoundation.js';
 
 const router = Router();
 
@@ -95,6 +96,15 @@ router.post('/', async (req, res) => {
       );
     }
 
+    const organization = await ensurePersonalOrganization(req.user.id, req.user.name);
+    await pool.query(
+      `INSERT INTO projects (organization_id, legacy_workspace_id, title, description, url_id, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (legacy_workspace_id) DO UPDATE
+       SET title = EXCLUDED.title, description = EXCLUDED.description, updated_at = NOW()`,
+      [organization.id, ws.id, ws.title, ws.description, ws.url_id, ws.created_at, ws.updated_at],
+    );
+
     return res.status(201).json({ workspace: ws });
   } catch (err) {
     console.error('Create workspace error:', err);
@@ -141,6 +151,13 @@ router.put('/:id', async (req, res) => {
         [req.params.id, JSON.stringify(snapshot)],
       );
     }
+
+    await pool.query(
+      `UPDATE projects
+       SET title = COALESCE($1, title), description = COALESCE($2, description), updated_at = NOW()
+       WHERE legacy_workspace_id = $3`,
+      [title, description, req.params.id],
+    );
 
     return res.json({ success: true });
   } catch (err) {
@@ -379,6 +396,7 @@ router.post('/:id/github-sync', async (req, res) => {
       branch,
       req.params.id,
     ]);
+    await pool.query('UPDATE projects SET updated_at = NOW() WHERE legacy_workspace_id = $1', [req.params.id]);
 
     return res.json({
       success: true,

@@ -199,6 +199,43 @@ export async function listUserWorkspaces(): Promise<
   return data.workspaces || [];
 }
 
+export async function listUserProjects(): Promise<
+  Array<{
+    id: string;
+    workspace_id: string;
+    url_id: string;
+    title: string;
+    description?: string;
+    updated_at: string;
+  }>
+> {
+  if (!isLoggedIn()) return [];
+
+  try {
+    const res = await fetch('/api/projects', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as {
+      projects?: Array<{
+        id: string;
+        workspace_id: string;
+        url_id: string;
+        title: string;
+        description?: string;
+        updated_at: string;
+      }>;
+    };
+    return data.projects || [];
+  } catch {
+    return [];
+  }
+}
+
 export async function deleteWorkspaceFromServer(urlId: string): Promise<void> {
   if (!isLoggedIn()) {
     return;

@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.js';
 import workspaceRoutes from './routes/workspaces.js';
+import projectRoutes from './routes/projects.js';
 import paymentRoutes from './routes/payments.js';
 import sandboxRoutes from './routes/sandbox.js';
 import deploymentRoutes from './routes/deployments.js';
@@ -23,6 +24,7 @@ app.use(cookieParser());
 
 app.use('/auth', authRoutes);
 app.use('/workspaces', workspaceRoutes);
+app.use('/projects', projectRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/sandbox', sandboxRoutes);
 app.use('/deployments', deploymentRoutes);

@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import pool from '../db.js';
 import { signToken, JWT_SECRET } from '../middleware/auth.js';
 import { requireAuth } from '../middleware/auth.js';
+import { ensurePersonalOrganization } from '../lib/projectFoundation.js';
 
 const router = Router();
 
@@ -47,6 +48,7 @@ router.post('/signup', async (req, res) => {
       user.id,
       passwordHash,
     ]);
+    await ensurePersonalOrganization(user.id, user.name);
 
     const token = signToken(user);
 
@@ -88,6 +90,7 @@ router.post('/login', async (req, res) => {
     }
 
     const { password_hash: _ph, ...safeUser } = user;
+    await ensurePersonalOrganization(safeUser.id, safeUser.name);
     const token = signToken(safeUser);
 
     res.cookie('neyla_token', token, COOKIE_OPTIONS);
@@ -241,6 +244,7 @@ router.get('/google/callback', async (req, res) => {
     const userResult = await pool.query('SELECT id, email, name, avatar_url FROM users WHERE id = $1', [userId]);
 
     const user = userResult.rows[0];
+    await ensurePersonalOrganization(user.id, user.name);
     const token = signToken(user);
 
     res.cookie('neyla_token', token, COOKIE_OPTIONS);
@@ -353,6 +357,7 @@ router.get('/github/callback', async (req, res) => {
         );
       }
 
+      await ensurePersonalOrganization(linkedUserId);
       return res.redirect('/auth/popup-success');
     }
 
@@ -395,6 +400,7 @@ router.get('/github/callback', async (req, res) => {
     );
 
     const user = userResult.rows[0];
+    await ensurePersonalOrganization(user.id, user.name);
     const token = signToken(user);
 
     res.cookie('neyla_token', token, COOKIE_OPTIONS);
