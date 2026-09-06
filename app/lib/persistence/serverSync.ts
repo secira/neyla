@@ -2,6 +2,7 @@ import type { Message } from 'ai';
 import { toast } from 'react-toastify';
 import { authUserAtom } from '~/lib/stores/auth';
 import type { Snapshot } from './types';
+import type { BuildPlan } from '~/lib/build-plan';
 
 const API_BASE = '/api/workspaces';
 
@@ -234,6 +235,106 @@ export async function listUserProjects(): Promise<
   } catch {
     return [];
   }
+}
+
+interface ProjectContextResponse {
+  context: {
+    project_id: string;
+    application_spec: Record<string, unknown>;
+    decisions: string[];
+    updated_at: string;
+  };
+  plans: BuildPlan[];
+}
+
+const PENDING_BUILD_PLAN_KEY = 'neyla:pending-build-plan';
+
+async function getProjectForUrl(urlId: string): Promise<{ id: string; title: string } | null> {
+  const projects = await listUserProjects();
+  const project = projects.find((item) => item.url_id === urlId);
+
+  return project ? { id: project.id, title: project.title } : null;
+}
+
+async function persistBuildPlan(urlId: string, plan: BuildPlan): Promise<boolean> {
+  const project = await getProjectForUrl(urlId);
+
+  if (!project) {
+    return false;
+  }
+
+  const res = await fetch(`/api/projects/${project.id}/plans`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(plan),
+  });
+
+  return res.ok;
+}
+
+export async function saveBuildPlanForUrl(urlId: string | undefined, plan: BuildPlan): Promise<void> {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(PENDING_BUILD_PLAN_KEY, JSON.stringify(plan));
+  }
+
+  if (!urlId || !isLoggedIn()) {
+    return;
+  }
+
+  await ensureServerWorkspace(urlId, plan.specification.projectName);
+
+  if (await persistBuildPlan(urlId, plan)) {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(PENDING_BUILD_PLAN_KEY);
+    }
+  }
+}
+
+export async function syncPendingBuildPlan(urlId: string, title?: string): Promise<void> {
+  if (!isLoggedIn() || typeof window === 'undefined') {
+    return;
+  }
+
+  const pending = window.localStorage.getItem(PENDING_BUILD_PLAN_KEY);
+
+  if (!pending) {
+    return;
+  }
+
+  try {
+    const plan = JSON.parse(pending) as BuildPlan;
+    await ensureServerWorkspace(urlId, title || plan.specification.projectName);
+
+    if (await persistBuildPlan(urlId, plan)) {
+      window.localStorage.removeItem(PENDING_BUILD_PLAN_KEY);
+    }
+  } catch {
+    // Keep the local copy so a temporary server failure does not lose the plan.
+  }
+}
+
+export async function loadProjectContext(urlId: string): Promise<ProjectContextResponse | null> {
+  if (!isLoggedIn()) {
+    return null;
+  }
+
+  const project = await getProjectForUrl(urlId);
+
+  if (!project) {
+    return null;
+  }
+
+  const res = await fetch(`/api/projects/${project.id}/context`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return res.json() as Promise<ProjectContextResponse>;
 }
 
 export async function deleteWorkspaceFromServer(urlId: string): Promise<void> {

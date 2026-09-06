@@ -36,6 +36,8 @@ import LlmErrorAlert from './LLMApiAlert';
 import { curateModelList, curateProviderList } from '~/utils/curatedModels';
 import { authUserAtom } from '~/lib/stores/auth';
 import { listUserWorkspaces } from '~/lib/persistence/serverSync';
+import type { BuildPlan } from '~/lib/build-plan';
+import { BuildPlanDialog } from './BuildPlanDialog';
 
 const TEXTAREA_MIN_HEIGHT = 76;
 
@@ -85,6 +87,12 @@ interface BaseChatProps {
   setSelectedElement?: (element: ElementInfo | null) => void;
   addToolResult?: ({ toolCallId, result }: { toolCallId: string; result: any }) => void;
   onWebSearchResult?: (result: string) => void;
+  buildPlan?: BuildPlan | null;
+  onBuildPlanChange?: (plan: BuildPlan) => void;
+  onApproveBuildPlan?: () => void;
+  onCancelBuildPlan?: () => void;
+  approvedBuildPlan?: BuildPlan | null;
+  onEditBuildPlan?: () => void;
 }
 
 export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
@@ -135,6 +143,12 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
         throw new Error('addToolResult not implemented');
       },
       onWebSearchResult,
+      buildPlan,
+      onBuildPlanChange,
+      onApproveBuildPlan,
+      onCancelBuildPlan,
+      approvedBuildPlan,
+      onEditBuildPlan,
     },
     ref,
   ) => {
@@ -516,6 +530,21 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   {llmErrorAlert && <LlmErrorAlert alert={llmErrorAlert} clearAlert={() => clearLlmErrorAlert?.()} />}
                 </div>
                 {progressAnnotations && <ProgressCompilation data={progressAnnotations} />}
+                {approvedBuildPlan && (
+                  <button
+                    type="button"
+                    onClick={onEditBuildPlan}
+                    className="flex items-center justify-between rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 px-3 py-2 text-left text-xs transition hover:border-bolt-elements-focus"
+                  >
+                    <span>
+                      <span className="font-medium text-bolt-elements-textPrimary">Build plan saved</span>
+                      <span className="ml-2 text-bolt-elements-textSecondary">
+                        {approvedBuildPlan.specification.projectName}
+                      </span>
+                    </span>
+                    <span className="text-bolt-elements-textSecondary">Review</span>
+                  </button>
+                )}
                 <ChatBox
                   isModelSettingsCollapsed={isModelSettingsCollapsed}
                   setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
@@ -592,7 +621,19 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       </div>
     );
 
-    return <Tooltip.Provider delayDuration={200}>{baseChat}</Tooltip.Provider>;
+    return (
+      <Tooltip.Provider delayDuration={200}>
+        {baseChat}
+        {buildPlan && onBuildPlanChange && onApproveBuildPlan && onCancelBuildPlan && (
+          <BuildPlanDialog
+            plan={buildPlan}
+            onChange={onBuildPlanChange}
+            onApprove={onApproveBuildPlan}
+            onCancel={onCancelBuildPlan}
+          />
+        )}
+      </Tooltip.Provider>
+    );
   },
 );
 

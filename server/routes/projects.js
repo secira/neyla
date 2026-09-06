@@ -44,6 +44,43 @@ function projectView(row) {
   };
 }
 
+function contextView(row) {
+  return {
+    project_id: row.project_id,
+    application_spec: row.application_spec || {},
+    decisions: Array.isArray(row.decisions) ? row.decisions : [],
+    updated_at: row.updated_at,
+  };
+}
+
+function planView(row) {
+  return {
+    id: row.id,
+    project_id: row.project_id,
+    version: row.version,
+    request: row.request,
+    title: row.title,
+    summary: row.summary,
+    specification: row.specification || {},
+    steps: Array.isArray(row.steps) ? row.steps : [],
+    assumptions: Array.isArray(row.assumptions) ? row.assumptions : [],
+    decisions: Array.isArray(row.decisions) ? row.decisions : [],
+    status: row.status,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    approved_at: row.approved_at,
+  };
+}
+
+async function ensureProjectContext(projectId) {
+  await pool.query(
+    `INSERT INTO project_context (project_id)
+     VALUES ($1)
+     ON CONFLICT (project_id) DO NOTHING`,
+    [projectId],
+  );
+}
+
 router.get('/', async (req, res) => {
   try {
     await ensurePersonalOrganization(req.user.id, req.user.name);
@@ -95,6 +132,191 @@ router.get('/:id', async (req, res) => {
   } catch (err) {
     console.error('Get project error:', err);
     return res.status(500).json({ error: 'Failed to fetch project' });
+  }
+});
+
+router.get('/:id/context', async (req, res) => {
+  try {
+    await ensurePersonalOrganization(req.user.id, req.user.name);
+    const project = await getAuthorizedProject(req.user.id, req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    await ensureProjectContext(project.id);
+    const [context, plans] = await Promise.all([
+      pool.query('SELECT * FROM project_context WHERE project_id = $1', [project.id]),
+      pool.query(
+        'SELECT * FROM project_build_plans WHERE project_id = $1 ORDER BY version DESC',
+        [project.id],
+      ),
+    ]);
+
+    return res.json({
+      context: contextView(context.rows[0]),
+      plans: plans.rows.map(planView),
+    });
+  } catch (err) {
+    console.error('Get project context error:', err);
+    return res.status(500).json({ error: 'Failed to fetch project context' });
+  }
+});
+
+router.put('/:id/context', async (req, res) => {
+  try {
+    await ensurePersonalOrganization(req.user.id, req.user.name);
+    const project = await getAuthorizedProject(req.user.id, req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const { applicationSpec, decisions } = req.body || {};
+    await pool.query(
+      `INSERT INTO project_context (project_id, application_spec, decisions, updated_at)
+       VALUES ($1, COALESCE($2, '{}'::jsonb), COALESCE($3, '[]'::jsonb), NOW())
+       ON CONFLICT (project_id) DO UPDATE SET
+         application_spec = COALESCE($2, project_context.application_spec),
+         decisions = COALESCE($3, project_context.decisions),
+         updated_at = NOW()`,
+      [project.id, applicationSpec ? JSON.stringify(applicationSpec) : null, decisions ? JSON.stringify(decisions) : null],
+    );
+
+    const context = await pool.query('SELECT * FROM project_context WHERE project_id = $1', [project.id]);
+    return res.json({ context: contextView(context.rows[0]) });
+  } catch (err) {
+    console.error('Update project context error:', err);
+    return res.status(500).json({ error: 'Failed to update project context' });
+  }
+});
+
+router.post('/:id/plans', async (req, res) => {
+  try {
+    await ensurePersonalOrganization(req.user.id, req.user.name);
+    const project = await getAuthorizedProject(req.user.id, req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const { request = '', title, summary = '', specification = {}, steps = [], assumptions = [], decisions = [], status = 'draft' } =
+      req.body || {};
+
+    if (!title || !['draft', 'approved', 'cancelled'].includes(status)) {
+      return res.status(400).json({ error: 'A plan title and valid status are required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO project_build_plans
+        (project_id, version, request, title, summary, specification, steps, assumptions, decisions, status, approved_at)
+       VALUES (
+         $1,
+         COALESCE((SELECT MAX(version) + 1 FROM project_build_plans WHERE project_id = $1), 1),
+         $2, $3, $4, $5, $6, $7, $8, $9,
+         CASE WHEN $9 = 'approved' THEN NOW() ELSE NULL END
+       )
+       RETURNING *`,
+      [
+        project.id,
+        request,
+        title,
+        summary,
+        JSON.stringify(specification),
+        JSON.stringify(Array.isArray(steps) ? steps : []),
+        JSON.stringify(Array.isArray(assumptions) ? assumptions : []),
+        JSON.stringify(Array.isArray(decisions) ? decisions : []),
+        status,
+      ],
+    );
+
+    if (status === 'approved') {
+      await pool.query(
+        `INSERT INTO project_context (project_id, application_spec, decisions, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (project_id) DO UPDATE SET
+           application_spec = $2,
+           decisions = $3,
+           updated_at = NOW()`,
+        [project.id, JSON.stringify(specification), JSON.stringify(Array.isArray(decisions) ? decisions : [])],
+      );
+    }
+
+    return res.status(201).json({ plan: planView(result.rows[0]) });
+  } catch (err) {
+    console.error('Create project plan error:', err);
+    return res.status(500).json({ error: 'Failed to create project plan' });
+  }
+});
+
+router.patch('/:id/plans/:planId', async (req, res) => {
+  try {
+    await ensurePersonalOrganization(req.user.id, req.user.name);
+    const project = await getAuthorizedProject(req.user.id, req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const existing = await pool.query(
+      'SELECT * FROM project_build_plans WHERE id = $1 AND project_id = $2',
+      [req.params.planId, project.id],
+    );
+
+    if (!existing.rows[0]) {
+      return res.status(404).json({ error: 'Build plan not found' });
+    }
+
+    const body = req.body || {};
+    const status = body.status || existing.rows[0].status;
+
+    if (!['draft', 'approved', 'cancelled'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid build plan status' });
+    }
+
+    const result = await pool.query(
+      `UPDATE project_build_plans
+       SET title = COALESCE($1, title),
+           summary = COALESCE($2, summary),
+           specification = COALESCE($3, specification),
+           steps = COALESCE($4, steps),
+           assumptions = COALESCE($5, assumptions),
+           decisions = COALESCE($6, decisions),
+           status = $7,
+           updated_at = NOW(),
+           approved_at = CASE WHEN $7 = 'approved' THEN COALESCE(approved_at, NOW()) ELSE approved_at END
+       WHERE id = $8 AND project_id = $9
+       RETURNING *`,
+      [
+        body.title,
+        body.summary,
+        body.specification ? JSON.stringify(body.specification) : null,
+        Array.isArray(body.steps) ? JSON.stringify(body.steps) : null,
+        Array.isArray(body.assumptions) ? JSON.stringify(body.assumptions) : null,
+        Array.isArray(body.decisions) ? JSON.stringify(body.decisions) : null,
+        status,
+        req.params.planId,
+        project.id,
+      ],
+    );
+
+    const plan = result.rows[0];
+    if (status === 'approved') {
+      await pool.query(
+        `INSERT INTO project_context (project_id, application_spec, decisions, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (project_id) DO UPDATE SET
+           application_spec = $2,
+           decisions = $3,
+           updated_at = NOW()`,
+        [project.id, JSON.stringify(plan.specification || {}), JSON.stringify(plan.decisions || [])],
+      );
+    }
+
+    return res.json({ plan: planView(plan) });
+  } catch (err) {
+    console.error('Update project plan error:', err);
+    return res.status(500).json({ error: 'Failed to update project plan' });
   }
 });
 

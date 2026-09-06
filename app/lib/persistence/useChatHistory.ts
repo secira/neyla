@@ -22,7 +22,7 @@ import type { Snapshot } from './types';
 import { webcontainer } from '~/lib/webcontainer';
 import { detectProjectCommands, createCommandActionsString } from '~/utils/projectCommands';
 import type { ContextAnnotation } from '~/types/context';
-import { syncMessagesToServer, loadWorkspaceFromServer } from './serverSync';
+import { syncMessagesToServer, loadWorkspaceFromServer, syncPendingBuildPlan } from './serverSync';
 
 export interface ChatHistoryItem {
   id: string;
@@ -266,6 +266,7 @@ ${value.content}
 
   return {
     ready: !mixedId || ready,
+    urlId,
     initialMessages,
     updateChatMestaData: async (metadata: IChatMetadata) => {
       const id = chatId.get();
@@ -354,6 +355,7 @@ ${value.content}
       if (_urlId) {
         const snap = await getSnapshot(db, finalChatId).catch(() => null);
         syncMessagesToServer(_urlId, [...archivedMessages, ...messages], snap, description.get()).catch(() => {});
+        syncPendingBuildPlan(_urlId, description.get()).catch(() => {});
       }
     },
     duplicateCurrentChat: async (listItemId: string) => {

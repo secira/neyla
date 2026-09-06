@@ -29,13 +29,20 @@ import type { ElementInfo } from '~/components/workbench/Inspector';
 import type { TextUIPart, FileUIPart, Attachment } from '@ai-sdk/ui-utils';
 import { useMCPStore } from '~/lib/stores/mcp';
 import type { LlmErrorAlertType } from '~/types/actions';
+import {
+  buildPlanPrompt,
+  createBuildPlan,
+  isSubstantialRequest,
+  type BuildPlan,
+} from '~/lib/build-plan';
+import { loadProjectContext, saveBuildPlanForUrl } from '~/lib/persistence/serverSync';
 
 const logger = createScopedLogger('Chat');
 
 export function Chat() {
   renderLogger.trace('Chat');
 
-  const { ready, initialMessages, storeMessageHistory, importChat, exportChat } = useChatHistory();
+  const { ready, initialMessages, storeMessageHistory, importChat, exportChat, urlId } = useChatHistory();
   const title = useStore(description);
   useEffect(() => {
     workbenchStore.setReloadedMessages(initialMessages.map((m) => m.id));
@@ -50,6 +57,7 @@ export function Chat() {
           exportChat={exportChat}
           storeMessageHistory={storeMessageHistory}
           importChat={importChat}
+            currentUrlId={urlId}
         />
       )}
     </>
@@ -80,10 +88,11 @@ interface ChatProps {
   importChat: (description: string, messages: Message[]) => Promise<void>;
   exportChat: () => void;
   description?: string;
+  currentUrlId?: string;
 }
 
 export const ChatImpl = memo(
-  ({ description, initialMessages, storeMessageHistory, importChat, exportChat }: ChatProps) => {
+  ({ description, initialMessages, storeMessageHistory, importChat, exportChat, currentUrlId }: ChatProps) => {
     useShortcuts();
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -116,7 +125,27 @@ export const ChatImpl = memo(
     const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
     const [chatMode, setChatMode] = useState<'discuss' | 'build'>('build');
     const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
+    const [buildPlan, setBuildPlan] = useState<BuildPlan | null>(null);
+    const [pendingPlanRequest, setPendingPlanRequest] = useState<string | null>(null);
+    const [approvedBuildPlan, setApprovedBuildPlan] = useState<BuildPlan | null>(null);
+    const [editingApprovedPlan, setEditingApprovedPlan] = useState(false);
     const mcpSettings = useMCPStore((state) => state.settings);
+
+    useEffect(() => {
+      if (!currentUrlId) {
+        return;
+      }
+
+      loadProjectContext(currentUrlId)
+        .then((context) => {
+          const latestPlan = context?.plans?.find((plan) => plan.status === 'approved') || context?.plans?.[0];
+
+          if (latestPlan) {
+            setApprovedBuildPlan(latestPlan);
+          }
+        })
+        .catch(() => {});
+    }, [currentUrlId]);
 
     const {
       messages,
@@ -405,7 +434,11 @@ export const ChatImpl = memo(
       return attachments;
     };
 
-    const sendMessage = async (_event: React.UIEvent, messageInput?: string) => {
+    const sendMessage = async (
+      _event: React.UIEvent,
+      messageInput?: string,
+      options?: { approvedPlan?: BuildPlan },
+    ) => {
       const messageContent = messageInput || input;
 
       if (!messageContent?.trim()) {
@@ -428,6 +461,27 @@ export const ChatImpl = memo(
 
         const elementInfo = `<div class=\"__boltSelectedElement__\" data-element='${JSON.stringify(selectedElement)}'>${JSON.stringify(`${selectedElement.displayText}`)}</div>`;
         finalMessageContent = messageContent + elementInfo;
+      }
+
+      if (!options?.approvedPlan && isSubstantialRequest(finalMessageContent, chatStarted, !!selectedElement)) {
+        setPendingPlanRequest(finalMessageContent);
+        setBuildPlan(createBuildPlan(finalMessageContent));
+        return;
+      }
+
+      if (options?.approvedPlan) {
+        const plan = { ...options.approvedPlan, status: 'approved' as const };
+        setApprovedBuildPlan(plan);
+        await saveBuildPlanForUrl(currentUrlId, plan).catch(() => {});
+
+        if (editingApprovedPlan) {
+          setBuildPlan(null);
+          setPendingPlanRequest(null);
+          setEditingApprovedPlan(false);
+          return;
+        }
+
+        finalMessageContent = `${finalMessageContent}\n\n${buildPlanPrompt(plan)}`;
       }
 
       runAnimation();
@@ -702,6 +756,33 @@ export const ChatImpl = memo(
         setSelectedElement={setSelectedElement}
         addToolResult={addToolResult}
         onWebSearchResult={handleWebSearchResult}
+        buildPlan={buildPlan}
+        onBuildPlanChange={setBuildPlan}
+        onApproveBuildPlan={() => {
+          if (!buildPlan || !pendingPlanRequest) {
+            return;
+          }
+
+          const approvedPlan = buildPlan;
+          setBuildPlan(null);
+          setPendingPlanRequest(null);
+          setEditingApprovedPlan(false);
+          sendMessage({} as React.UIEvent, pendingPlanRequest, { approvedPlan }).catch((error) => {
+            handleError(error);
+          });
+        }}
+        onCancelBuildPlan={() => {
+          setBuildPlan(null);
+          setPendingPlanRequest(null);
+        }}
+        approvedBuildPlan={approvedBuildPlan}
+        onEditBuildPlan={() => {
+          if (approvedBuildPlan) {
+            setBuildPlan({ ...approvedBuildPlan, status: 'draft' });
+            setPendingPlanRequest(approvedBuildPlan.request);
+            setEditingApprovedPlan(true);
+          }
+        }}
       />
     );
   },
