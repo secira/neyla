@@ -1,0 +1,1851 @@
+Yes. Looking at what you have **already built**, I would change the roadmap significantly from my previous answer.
+
+You are **much further along than a basic Lovable fork**. You already have the core Create → Preview → Own → Deploy loop, GitHub, multiple deployment targets, E2B sandboxing, Build Plans, organizations/projects, and a fairly serious credential-security foundation.
+
+The mistake now would be adding lots of new features. **The next objective should be to make the existing path reliable enough that 10–20 real startups/SMEs can use Neyla from idea → production without your team manually rescuing them.**
+
+## My assessment
+
+I'd rate the current product roughly:
+
+| Area                   |                Current | Priority             |
+| ---------------------- | ---------------------: | -------------------- |
+| AI app creation        |              🟢 Strong | Improve reliability  |
+| Build Plans            |              🟢 Strong | Finish/test          |
+| Preview/workbench      |              🟢 Strong | Stabilize            |
+| Authentication         |                🟢 Good | Team features next   |
+| Projects/orgs          |     🟡 Good foundation | Finish consistency   |
+| GitHub                 |              🟢 Strong | Make seamless        |
+| Netlify                |                🟢 Good | Reliability          |
+| Vercel                 |                🟢 Good | Reliability          |
+| Neyla AWS hosting      |           🟡 Strategic | Finish end-to-end    |
+| Security               | 🟢 Surprisingly strong | Harden               |
+| Collaboration          |             🔴 Missing | High priority        |
+| Production reliability |                     🟡 | **Highest priority** |
+| App quality/testing    |                     🟡 | **Highest priority** |
+| MCP                    |                     ⏸️ | Don't touch yet      |
+| Enterprise governance  |                     ⏸️ | Don't touch yet      |
+
+The product is now at the point where **polishing the core loop is more valuable than expanding the feature surface**.
+
+---
+
+# 1. The product you actually have today
+
+Your architecture is already converging toward:
+
+```text
+                         NEYLA
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+          CREATE                       OWN
+             │                           │
+        AI Builder                    GitHub
+        Build Plans                  Projects
+        Templates                    Organizations
+             │                           │
+             └─────────────┬─────────────┘
+                           │
+                        PREVIEW
+                           │
+                         E2B
+                           │
+                           ▼
+                        DEPLOY
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+           Neyla AWS    Vercel      Netlify
+```
+
+That is a **real product**, not merely a prototype.
+
+So I would now define your Phase 1 goal as:
+
+> **Neyla must reliably take a non-technical founder from an idea to a working, deployable application whose source code they own.**
+
+That sentence should drive every engineering decision for the next 8–12 weeks.
+
+---
+
+# 2. Don't add MCP yet
+
+I agree with your decision.
+
+Your existing MCP work should remain architecturally isolated but **completely invisible to the Phase-1 user experience**.
+
+Don't spend your 10-person team's bandwidth on:
+
+* MCP marketplace
+* MCP registry
+* MCP server management
+* enterprise connectors
+* agent permissions
+* MCP governance
+
+until your current core loop works reliably.
+
+Your future architecture can remain:
+
+```text
+NEYLA.AI
+   │
+   ├── App Builder        ← NOW
+   ├── GitHub             ← NOW
+   ├── Hosting            ← NOW
+   │
+   └── Neyla Connect      ← LATER
+          │
+          ├── MCP
+          ├── APIs
+          ├── Databases
+          └── Enterprise systems
+```
+
+---
+
+# 3. Your immediate priority should be "Production Reliability"
+
+You have identified several issues yourself:
+
+* deployment credentials
+* expired provider connections
+* build logs
+* real end-to-end deployment
+* EC2 lifecycle
+* local storage recovery
+* workspace/project consistency
+* model fallback
+* Build Plan testing
+* publishing without workspace IDs
+
+These aren't miscellaneous bugs.
+
+They form one major product problem:
+
+# **Can Neyla reliably get an application into production?**
+
+I would make that your first milestone.
+
+---
+
+# 4. P0 — Finish the existing product
+
+Before adding significant features, I would have Replit work through the outstanding items in this order.
+
+## P0.1 — Eliminate credential exposure
+
+Finish:
+
+> Keeping deployment credentials out of all browser storage.
+
+This is non-negotiable.
+
+Audit:
+
+```text
+localStorage
+sessionStorage
+IndexedDB
+cookies
+URL parameters
+browser network requests
+React state
+Redux/Zustand state
+console logs
+error messages
+analytics
+```
+
+The browser should receive:
+
+```text
+deployment_id
+status
+public_url
+safe metadata
+```
+
+Never:
+
+```text
+API token
+deployment agent token
+provider secret
+AWS credential
+GitHub credential
+```
+
+Your current security design is already headed in the right direction, so finish this before adding functionality.
+
+---
+
+# 5. P0.2 — Make Publish completely reliable
+
+I would create one canonical publishing workflow.
+
+```text
+User clicks Publish
+        ↓
+Validate project
+        ↓
+Build
+        ↓
+Run checks
+        ↓
+Package
+        ↓
+Upload
+        ↓
+Deploy
+        ↓
+Health check
+        ↓
+LIVE
+```
+
+Not:
+
+```text
+Publish clicked
+ ↓
+"probably deployed"
+```
+
+The final state should be based on an actual health check.
+
+### Publish states
+
+I'd standardize these:
+
+```text
+DRAFT
+VALIDATING
+BUILDING
+PACKAGING
+DEPLOYING
+HEALTH_CHECK
+LIVE
+FAILED
+STOPPED
+```
+
+The UI should clearly show the current stage.
+
+---
+
+# 6. P0.3 — Build Logs
+
+You specifically mention:
+
+> Showing build logs in the Publish panel.
+
+Do this.
+
+But don't expose raw infrastructure complexity to normal users.
+
+Give them:
+
+### Build
+
+✓ Installing dependencies
+✓ Compiling application
+✓ Running checks
+✓ Creating deployment package
+
+### Deployment
+
+✓ Uploading
+✓ Starting application
+✓ Health check
+✓ Application is live
+
+Then:
+
+**View detailed logs**
+
+for developers.
+
+This is important because deployment failures will otherwise become support tickets.
+
+---
+
+# 7. P0.4 — Real end-to-end deployment test
+
+Create an automated test:
+
+```text
+Create account
+ ↓
+Create project
+ ↓
+Generate app
+ ↓
+Build
+ ↓
+Preview
+ ↓
+Publish
+ ↓
+HTTP request to public URL
+ ↓
+Verify application responds
+```
+
+You should be able to run this every time you make changes to the deployment system.
+
+This becomes your **Neyla Golden Path Test**.
+
+---
+
+# 8. P0.5 — Fix project/workspace legacy complexity
+
+You currently have:
+
+> legacy workspace URLs and internals remain supported
+> `legacy_workspace_id` mapping
+> `/api/workspaces` compatibility routes
+
+This is understandable during migration.
+
+But this is now technical debt.
+
+Your target architecture should be:
+
+```text
+Organization
+   ↓
+Project
+   ↓
+Conversation
+   ↓
+Files
+   ↓
+Build
+   ↓
+Deployment
+```
+
+not:
+
+```text
+Organization
+ ↓
+Project
+ ↓
+Legacy Workspace
+ ↓
+Another compatibility layer
+ ↓
+Build
+```
+
+**Do not necessarily remove legacy support immediately.**
+
+Instead:
+
+### Phase A
+
+Keep compatibility.
+
+### Phase B
+
+Stop creating new legacy workspace records.
+
+### Phase C
+
+Migrate existing projects.
+
+### Phase D
+
+Remove legacy routes.
+
+This will substantially reduce future complexity.
+
+---
+
+# 9. P0.6 — Project recovery
+
+You mentioned:
+
+> Recovery when local storage is cleared or corrupted.
+
+This is important.
+
+The product should behave as though:
+
+> **The server is the source of truth.**
+
+The browser should be a cache.
+
+Architecture:
+
+```text
+                NEYLA SERVER
+                    │
+          ┌─────────┼─────────┐
+          │         │         │
+       Project    Chat      Context
+          │         │         │
+          └─────────┼─────────┘
+                    │
+                 Browser
+                    │
+              Local cache
+```
+
+If the browser cache disappears:
+
+**Nothing important is lost.**
+
+When the user logs back in:
+
+> Restore my project.
+
+That is critical for trust.
+
+---
+
+# 10. P1 — Make the AI builder dramatically better
+
+Once the production pipeline is stable, the next biggest opportunity is **AI application quality**.
+
+You already have Build Plans.
+
+Now build:
+
+# **Persistent Project Intelligence**
+
+Your current requirement:
+
+> Preserving important AI implementation decisions for future edits.
+
+I would make this a first-class feature.
+
+Every project should maintain:
+
+```text
+PROJECT MEMORY
+
+Application
+├── Purpose
+├── Features
+├── Pages
+├── Database
+├── Authentication
+├── Roles
+├── APIs
+├── Components
+├── Dependencies
+├── Design system
+├── Business rules
+├── Architecture decisions
+├── Known issues
+└── Deployment configuration
+```
+
+Then every AI modification gets relevant context.
+
+---
+
+# 11. Don't let the AI rebuild the application unnecessarily
+
+This should become a hard rule.
+
+If the user says:
+
+> "Add an export button to the customer page."
+
+Neyla should:
+
+```text
+Understand current project
+ ↓
+Find customer page
+ ↓
+Find relevant data
+ ↓
+Add export functionality
+ ↓
+Build
+ ↓
+Test
+```
+
+Not:
+
+```text
+Read prompt
+ ↓
+Regenerate customer page
+ ↓
+Break five other things
+```
+
+This is one of the biggest quality differentiators you can create.
+
+---
+
+# 12. Build a "Neyla Change Engine"
+
+I'd make the AI workflow conceptually:
+
+```text
+USER REQUEST
+     ↓
+UNDERSTAND
+     ↓
+IMPACT ANALYSIS
+     ↓
+PLAN
+     ↓
+MODIFY
+     ↓
+BUILD
+     ↓
+TEST
+     ↓
+SHOW RESULT
+```
+
+For example:
+
+> "Add GST calculation to invoices."
+
+Neyla should internally determine:
+
+```text
+Affected:
+✓ Invoice schema
+✓ Invoice calculation service
+✓ Invoice form
+✓ Invoice display
+✓ Invoice PDF
+
+Potentially unaffected:
+Customer
+Products
+Authentication
+Dashboard
+```
+
+This reduces accidental breakage.
+
+---
+
+# 13. P1 — Build an application test loop
+
+This is probably your **highest-value AI feature after reliability**.
+
+Neyla shouldn't just generate code.
+
+It should test what it generated.
+
+Conceptually:
+
+```text
+Generate
+   ↓
+Build
+   ↓
+Run
+   ↓
+Test
+   ↓
+Error?
+ ┌─┴─┐
+YES NO
+ │   │
+Fix  Done
+ │
+Test again
+```
+
+Eventually:
+
+> "Create a login page"
+
+Neyla tests:
+
+```text
+✓ Page loads
+✓ Login form renders
+✓ Invalid login handled
+✓ Valid login works
+✓ Protected route redirects
+```
+
+That moves Neyla toward:
+
+> **AI application development**
+
+rather than:
+
+> AI code generation.
+
+---
+
+# 14. P1 — Improve the first-time experience
+
+Your current feature set has a lot of infrastructure.
+
+A new SME founder shouldn't see that complexity.
+
+The first screen should essentially be:
+
+# What do you want to build?
+
+Examples:
+
+> CRM for my sales team
+
+> Inventory management system for my retail business
+
+> Employee leave management application
+
+> Customer support portal
+
+> SaaS dashboard
+
+Then:
+
+**Start Building**
+
+That's it.
+
+---
+
+# 15. Templates should become a major acquisition mechanism
+
+You already have starter projects/templates.
+
+Now make them excellent.
+
+I'd create perhaps **8 high-quality templates**, rather than 50 mediocre ones.
+
+### Business
+
+* CRM
+* Inventory
+* HR
+* Expense
+* Helpdesk
+* Project management
+
+### Startup
+
+* SaaS dashboard
+* Customer portal
+
+Each template should be:
+
+```text
+UI
++
+Database
++
+Authentication
++
+Roles
++
+Sample data
++
+AI project context
++
+Build instructions
+```
+
+The AI should understand the template's architecture.
+
+---
+
+# 16. P1 — Team collaboration
+
+This is the next major missing product capability.
+
+You already have organizations.
+
+Now finish:
+
+> Team invitations and shared projects.
+
+The basic model:
+
+```text
+Organization
+│
+├── Owner
+├── Admin
+├── Developer
+└── Member
+     │
+     └── Projects
+```
+
+Initially keep permissions simple.
+
+### Owner
+
+Everything.
+
+### Admin
+
+Manage members/projects.
+
+### Developer
+
+Build/edit/deploy.
+
+### Member
+
+View/use projects.
+
+Don't build granular enterprise RBAC yet.
+
+---
+
+# 17. P1 — Make GitHub exceptional
+
+You already have good GitHub functionality.
+
+Now turn it into a major selling point.
+
+The promise should be:
+
+# **Your code is yours.**
+
+The project page should show:
+
+```text
+GitHub
+Connected ✓
+
+Repository
+company/my-crm
+
+Branch
+main
+
+Last sync
+2 minutes ago
+
+Last commit
+Add customer dashboard
+
+[Open GitHub]
+[Sync]
+[Push Changes]
+```
+
+Eventually:
+
+```text
+Neyla
+ ↕
+GitHub
+ ↕
+Developer's IDE
+```
+
+This creates enormous trust.
+
+---
+
+# 18. P1 — Don't over-focus on external deployment providers
+
+You already have:
+
+* Vercel
+* Netlify
+* Neyla/AWS
+
+That's enough.
+
+I'd make the UI:
+
+# Deploy
+
+### Neyla Cloud
+
+**Recommended**
+
+### Vercel
+
+### Netlify
+
+### GitHub / Export
+
+Don't add AWS/Azure/GCP deployment complexity directly into the UI yet.
+
+Neyla-managed AWS can remain your backend hosting mechanism.
+
+The user shouldn't need to understand EC2.
+
+---
+
+# 19. Neyla hosting should eventually become the easiest option
+
+Your desired flow:
+
+```text
+Build
+ ↓
+Preview
+ ↓
+Publish
+ ↓
+https://myapp.neyla.app
+```
+
+should work in one click.
+
+Then:
+
+**Connect Domain**
+
+```text
+mycompany.com
+```
+
+You don't need to build a huge cloud platform.
+
+Initially:
+
+* deployment
+* domain
+* SSL
+* logs
+* restart
+* redeploy
+* rollback
+
+That's enough.
+
+---
+
+# 20. P1 — Pricing should be usage + deployment oriented
+
+Don't rush into complex enterprise pricing.
+
+For SMEs/startups, something like:
+
+### Free
+
+Experiment.
+
+### Builder
+
+Build more applications.
+
+### Pro
+
+Higher AI usage + deployments.
+
+### Team
+
+Collaboration + shared projects.
+
+### Business
+
+Higher limits + support + private features.
+
+The exact pricing can be decided after usage data.
+
+But instrument the system now.
+
+---
+
+# 21. Your metrics should change
+
+Don't measure:
+
+> Number of AI prompts.
+
+Measure:
+
+### North Star
+
+# **Successfully deployed applications**
+
+Then:
+
+```text
+Signup
+ ↓
+Project created
+ ↓
+First prompt
+ ↓
+First successful build
+ ↓
+First preview
+ ↓
+GitHub connected
+ ↓
+First deployment
+ ↓
+Application actually used
+```
+
+Track conversion at every stage.
+
+Your most important metric will probably become:
+
+> **% of new projects reaching a successful production deployment**
+
+---
+
+# 22. What I would assign to your 10-person team
+
+Given what you've already built:
+
+### 3 people — AI/Studio
+
+* generation
+* Build Plans
+* project context
+* change engine
+* testing
+
+### 2 people — Core platform
+
+* projects
+* organizations
+* persistence
+* collaboration
+* auth
+
+### 2 people — Deployment
+
+* Neyla hosting
+* Vercel
+* Netlify
+* logs
+* health checks
+* rollback
+
+### 1 person — GitHub
+
+* OAuth
+* sync
+* commits
+* import/export
+* repository reliability
+
+### 1 person — UX/Product
+
+* onboarding
+* templates
+* dashboard
+* Studio UX
+
+### 1 person — QA/DevOps
+
+* golden-path tests
+* security
+* monitoring
+* CI/CD
+* production reliability
+
+---
+
+# 23. The next 90 days
+
+I would divide it into **three very clear releases**.
+
+## Release 1 — "It Works"
+
+### Weeks 1–3
+
+No major new features.
+
+Fix:
+
+* credential exposure
+* provider expiry
+* build logs
+* deployment reliability
+* EC2 lifecycle
+* workspace/project consistency
+* local storage recovery
+* Build Plan tests
+* model fallback
+* publishing without workspace IDs
+
+Then implement:
+
+### Golden Path Test
+
+```text
+Signup
+→ Project
+→ Build
+→ Preview
+→ GitHub
+→ Publish
+→ Live
+```
+
+**Do not move to Release 2 until this works reliably.**
+
+---
+
+# Release 2 — "It's a Product"
+
+### Weeks 4–7
+
+Add:
+
+### Project intelligence
+
+* persistent context
+* architecture memory
+* implementation decisions
+* better incremental edits
+
+### Collaboration
+
+* team invitations
+* shared projects
+* basic roles
+
+### GitHub
+
+* seamless synchronization
+* project status
+* version history
+
+### Templates
+
+8–10 polished templates.
+
+---
+
+# Release 3 — "It's Better Than a Clone"
+
+### Weeks 8–12
+
+Build the features that make Neyla meaningfully different:
+
+### 1. Build Plan
+
+Already started.
+
+Make it excellent.
+
+### 2. Project Memory
+
+Neyla remembers how the application was built.
+
+### 3. AI Change Engine
+
+Neyla modifies rather than unnecessarily rebuilding.
+
+### 4. Automated testing
+
+Neyla tests what it creates.
+
+### 5. Deployment intelligence
+
+Neyla diagnoses deployment failures.
+
+### 6. One-click production
+
+Build → Check → Deploy → Live.
+
+This is where you begin moving away from "Lovable clone."
+
+---
+
+# 24. The Phase-1 architecture I would freeze
+
+I would now tell the Replit team to treat this as the target:
+
+```text
+                        NEYLA
+                          │
+        ┌─────────────────┼─────────────────┐
+        │                 │                 │
+     STUDIO            PROJECTS          ACCOUNT
+        │                 │                 │
+     AI Build          Organization       Auth
+     Build Plans       Projects            Billing
+     Context           Collaboration
+     Templates         Versions
+        │
+        ▼
+   APPLICATION
+        │
+   ┌────┴────┐
+   │         │
+Preview     Code
+   │         │
+  E2B       Git
+             │
+             ▼
+          GitHub
+             │
+             ▼
+         DEPLOYMENT
+             │
+       ┌─────┼─────┐
+       │     │     │
+     Neyla  Vercel Netlify
+      AWS
+```
+
+Then **later**:
+
+```text
+                    NEYLA CONNECT
+                         │
+              ┌──────────┼──────────┐
+              │          │          │
+             MCP        APIs      Databases
+              │
+              ▼
+        Enterprise Systems
+```
+
+And only after that:
+
+```text
+                 NEYLA CONTROL
+                      │
+       Identity / Policy / Audit / Governance
+```
+
+---
+
+# 25. One architectural principle I would add now
+
+Even though you're not building MCP yet, **design the application builder around an abstraction for external capabilities**.
+
+Don't hard-wire future integrations directly into the UI.
+
+For example:
+
+```text
+Neyla Capability
+       │
+       ├── Local
+       ├── API
+       ├── Database
+       ├── MCP
+       └── Connector
+```
+
+But **implement only Local/API capabilities now**.
+
+Later MCP can plug into the same abstraction.
+
+That means when you launch Neyla.dev, you're not rebuilding Neyla.ai.
+
+---
+
+# 26. Your immediate Replit task
+
+I would **not give Replit the giant specification from my previous response yet**.
+
+Your next prompt should be an **audit + stabilization sprint** based on what you actually have.
+
+Use this first:
+
+# Neyla Phase 1 — Stabilization & Product Completion Sprint
+
+## Context
+
+Neyla is an AI-powered application development platform for startups and SMEs.
+
+The current codebase is based on an existing Lovable/Bolt-style open-source application builder with significant Neyla customization.
+
+Neyla currently supports:
+
+### Create
+
+* AI-powered application generation through chat
+* Streaming AI responses and code generation
+* Multiple LLM providers
+* File-aware project editing
+* Code/workbench file tree
+* Project descriptions
+* Conversation history
+* Starter projects/templates
+* India-focused onboarding
+* Build Plans with AI-generated plans, approval, cancellation and persistence
+
+### Preview
+
+* Live application preview
+* Browser-based development workspace
+* Code editor
+* File explorer
+* Preview refresh
+* Runtime feedback
+* E2B sandbox support
+* Workspace snapshots
+* Persisted chat history
+
+### Own
+
+* Email/password authentication
+* GitHub OAuth
+* Google OAuth
+* Cookie-based authenticated sessions
+* Personal organizations
+* Organizations/projects
+* Project context
+* Build Plan history
+* GitHub connection
+* GitHub repository sync
+* GitHub repository information
+* GitLab/Vercel/Netlify/Supabase integration surfaces
+
+### Deploy
+
+* Netlify deployment
+* Vercel deployment
+* Neyla-managed AWS/EC2 publishing
+* Deployment status
+* Deployment URL
+* Deployment agent
+* Credential revocation
+* Encrypted deployment credentials
+
+### Security
+
+* AES-256-GCM credential vault
+* Encrypted provider credentials
+* Encrypted deployment credentials
+* Server-side credential handling
+* GitHub credential protection
+* Revocation
+* Security-related auditing
+
+## Product objective
+
+Do NOT turn Neyla into an enterprise AI governance platform yet.
+
+Do NOT implement MCP yet.
+
+Do NOT implement enterprise SSO, SCIM, complex agent governance, MCP marketplace, enterprise policy engine or advanced enterprise integrations.
+
+The current goal is:
+
+> Make Neyla the easiest way for a startup or SME to describe, build, own and deploy a real business application.
+
+The Phase-1 user journey must be:
+
+Create → Build → Preview → Own → Deploy
+
+## Critical product principle
+
+The server must be the source of truth.
+
+Browser local storage must never contain critical project state or credentials that cannot be recovered.
+
+The user must be able to lose browser cache/local storage and recover their project after logging back in.
+
+---
+
+# PRIORITY 0 — STABILIZATION
+
+Do not add major features until these are complete.
+
+## 1. Security audit
+
+Audit the entire application for secrets and credentials.
+
+Check:
+
+* localStorage
+* sessionStorage
+* IndexedDB
+* cookies
+* browser memory/state
+* URLs/query parameters
+* network requests
+* API responses
+* console logs
+* error messages
+* analytics
+* browser cache
+
+Ensure:
+
+* provider credentials never reach the browser
+* deployment credentials never reach the browser
+* GitHub credentials never reach the browser
+* AWS credentials never reach the browser
+* Supabase service credentials never reach the browser
+* credentials are never included in URLs
+* credentials are never logged
+
+Document all credential flows.
+
+## 2. Provider expiration handling
+
+Implement robust handling for expired/revoked:
+
+* Netlify connections
+* Vercel connections
+* GitHub connections
+
+When credentials expire:
+
+1. Detect the failure.
+2. Show a clear message.
+3. Mark connection as expired.
+4. Offer reconnect.
+5. Do not expose provider API errors containing secrets.
+6. Do not leave the application in an inconsistent state.
+
+## 3. Deployment state machine
+
+Create a canonical deployment state model.
+
+States:
+
+DRAFT
+VALIDATING
+BUILDING
+PACKAGING
+DEPLOYING
+HEALTH_CHECK
+LIVE
+FAILED
+STOPPED
+
+Do not allow arbitrary inconsistent deployment states.
+
+## 4. Build logs
+
+Add build logs to the Publish/Deploy panel.
+
+The UI should have:
+
+### Summary
+
+* current step
+* progress
+* success/failure
+* deployment URL
+
+### Detailed logs
+
+Allow developers to inspect detailed build/deployment logs.
+
+Never expose credentials in logs.
+
+## 5. End-to-end deployment verification
+
+Implement an actual post-deployment health check.
+
+After deployment:
+
+1. Wait for deployment.
+2. Check public URL.
+3. Verify HTTP response.
+4. Verify application is reachable.
+5. Mark deployment LIVE only after successful health check.
+
+If health check fails:
+
+Mark deployment FAILED.
+
+Provide actionable error information.
+
+## 6. Neyla Golden Path Test
+
+Create an automated end-to-end test covering:
+
+Signup
+→ Login
+→ Create Project
+→ Send Build Prompt
+→ Generate Application
+→ Preview
+→ Connect GitHub
+→ Push Repository
+→ Publish
+→ Health Check
+→ Public URL
+
+This test should run automatically in CI.
+
+The test must use a small deterministic sample application.
+
+## 7. EC2 lifecycle
+
+Finish:
+
+* idle instance detection
+* automatic shutdown of idle EC2 instances
+* safe restart/redeployment
+* instance status synchronization
+* deployment state synchronization
+
+Do not terminate an active production deployment accidentally.
+
+## 8. Credential revocation testing
+
+Test:
+
+* revoke credential
+* old credential rejected
+* new credential generated
+* old EC2 deployment invalidated
+* deployment marked requiring republish
+* republish works with new credential
+
+Add automated tests.
+
+---
+
+# PRIORITY 0.5 — PROJECT CONSISTENCY
+
+## 9. Eliminate unnecessary legacy dependence
+
+Existing legacy workspace compatibility must remain temporarily.
+
+However:
+
+* new projects should use Project as the canonical object
+* new code should not depend on legacy workspace IDs
+* new APIs should use project IDs
+* new deployment APIs should use project IDs
+* publishing must not require browser-provided workspace IDs
+
+Create a migration strategy:
+
+Phase A:
+Keep compatibility.
+
+Phase B:
+Stop creating new legacy workspace dependencies.
+
+Phase C:
+Migrate old projects.
+
+Phase D:
+Remove legacy APIs.
+
+Do not break existing users while performing this migration.
+
+## 10. Server-side project recovery
+
+Ensure that all critical project information is persisted server-side:
+
+* files
+* project metadata
+* project context
+* conversations
+* Build Plans
+* versions
+* GitHub configuration
+* deployment metadata
+
+Local storage should only be used as a cache or convenience layer.
+
+If local storage is cleared, the user must be able to log back in and recover the project.
+
+---
+
+# PRIORITY 1 — AI APPLICATION QUALITY
+
+Once Priority 0 is stable, improve the AI development experience.
+
+## 11. Persistent Project Intelligence
+
+Create a server-side project context containing:
+
+* application purpose
+* application type
+* features
+* pages
+* routes
+* database schema
+* authentication
+* user roles
+* APIs
+* integrations
+* components
+* dependencies
+* design system
+* business rules
+* architecture decisions
+* known issues
+* deployment requirements
+
+The context must survive conversations and sessions.
+
+## 12. Preserve implementation decisions
+
+When the AI makes an important architectural decision, record it.
+
+Examples:
+
+* chosen database structure
+* authentication architecture
+* API pattern
+* component conventions
+* naming conventions
+* design system
+* important business rules
+* dependency decisions
+
+These decisions must be available to future AI edits.
+
+## 13. Incremental code modification
+
+The AI should prefer modifying the existing application instead of rebuilding unrelated portions.
+
+Before a major change:
+
+1. Understand the project.
+2. Identify affected files.
+3. Identify dependencies.
+4. Generate a change plan.
+5. Modify only relevant areas.
+6. Build.
+7. Test.
+8. Report changes.
+
+## 14. Change impact analysis
+
+For substantial changes, determine:
+
+* affected pages
+* affected components
+* affected database tables
+* affected APIs
+* affected dependencies
+* possible breaking changes
+
+Show this to the user when useful.
+
+## 15. Build Plan improvements
+
+Complete and test:
+
+* AI plan generation
+* approval
+* cancellation
+* persistence
+* execution
+* progress
+* error handling
+* resume/retry
+
+Do not lose Build Plan state when the browser refreshes.
+
+---
+
+# PRIORITY 1.5 — AUTOMATED APPLICATION VALIDATION
+
+## 16. Neyla Check
+
+Before deployment, run:
+
+* dependency checks
+* build checks
+* TypeScript checks where applicable
+* route checks
+* environment variable checks
+* startup checks
+* basic security checks
+
+Display:
+
+Neyla Check
+
+✓ Build successful
+✓ Dependencies valid
+✓ Configuration valid
+✓ Application starts
+✓ No blocking errors
+
+If errors exist:
+
+Show:
+
+* issue
+* affected area
+* explanation
+* suggested fix
+
+## 17. Automatic repair
+
+When a generated application fails to build:
+
+1. Capture error.
+2. Identify affected files.
+3. Send relevant error/context to AI.
+4. Attempt repair.
+5. Rebuild.
+6. Stop after a defined retry limit.
+
+Never create infinite AI repair loops.
+
+---
+
+# PRIORITY 2 — COLLABORATION
+
+## 18. Team invitations
+
+Implement:
+
+* invite user
+* accept invitation
+* revoke invitation
+* resend invitation
+* remove member
+
+## 19. Basic roles
+
+Implement only:
+
+Owner
+Admin
+Developer
+Member
+
+Do not implement complex enterprise RBAC yet.
+
+## 20. Shared projects
+
+Members of an organization must be able to access authorized projects.
+
+Ensure project isolation between organizations.
+
+---
+
+# PRIORITY 2.5 — GITHUB
+
+Make GitHub a first-class product capability.
+
+Required:
+
+* Connect
+* Create repository
+* Push
+* Pull
+* Sync
+* Show repository
+* Show branch
+* Show last commit
+* Show sync state
+* Disconnect
+
+The user's repository must contain the real application source code.
+
+The customer must be able to clone the repository and continue development outside Neyla.
+
+Never expose credentials to generated applications.
+
+---
+
+# PRIORITY 3 — TEMPLATES
+
+Create 8–10 excellent templates.
+
+Initial templates:
+
+1. CRM
+2. Inventory
+3. HR
+4. Expense management
+5. Helpdesk
+6. Project management
+7. SaaS dashboard
+8. Customer portal
+9. Admin dashboard
+10. Internal operations
+
+Templates should contain:
+
+* UI
+* starter architecture
+* database structure where appropriate
+* authentication
+* roles
+* sample data
+* Project Context
+* AI instructions
+
+The AI should understand the architecture of the selected template.
+
+---
+
+# PRIORITY 3.5 — NEYLA HOSTING
+
+Make Neyla hosting the easiest deployment option.
+
+User experience:
+
+Build
+→ Neyla Check
+→ Publish
+→ Live
+
+Generate:
+
+[https://project.neyla.app](https://project.neyla.app)
+
+Later support custom domain.
+
+Initial hosting capabilities:
+
+* deploy
+* status
+* logs
+* restart
+* redeploy
+* rollback
+* custom domain architecture
+
+Do not expose EC2 terminology to normal users.
+
+---
+
+# EXPLICITLY OUT OF SCOPE
+
+Do not implement:
+
+* MCP
+* MCP marketplace
+* MCP registry
+* IBM MCP integration
+* enterprise agent governance
+* enterprise policy engine
+* SCIM
+* complex enterprise RBAC
+* private cloud
+* VPC deployment
+* multi-region deployment
+* autonomous agents
+* advanced workflow orchestration
+* enterprise compliance center
+* advanced FinOps
+
+These are future phases.
+
+---
+
+# PRODUCT SUCCESS CRITERIA
+
+The Phase-1 product is successful when a new user can:
+
+1. Sign up.
+2. Create a project.
+3. Describe an application.
+4. Have Neyla generate it.
+5. Modify it through conversation.
+6. Preview it.
+7. Connect GitHub.
+8. Push the source code.
+9. Run Neyla Check.
+10. Publish the application.
+11. Receive a public URL.
+12. Open the application successfully.
+13. Return later and continue editing.
+14. Recover the project after clearing browser storage.
+15. Invite a teammate and collaborate.
+
+The most important metric is:
+
+> Percentage of newly created projects that successfully reach a live deployment.
+
+## DEVELOPMENT PROCESS
+
+Do not implement all requirements in one operation.
+
+Work in milestones.
+
+For each milestone:
+
+1. Inspect existing implementation.
+2. Identify reusable code.
+3. Identify affected modules.
+4. Explain the implementation plan.
+5. Make the smallest safe change.
+6. Run tests.
+7. Run build.
+8. Verify manually where appropriate.
+9. Fix regressions.
+10. Commit changes.
+11. Document what changed.
+
+Do not rewrite working components without justification.
+
+Do not introduce unnecessary dependencies.
+
+Do not migrate architecture and add unrelated features simultaneously.
+
+## FIRST REPLIT TASK
+
+Do NOT modify the application yet.
+
+First audit the existing codebase against this specification.
+
+Produce:
+
+1. Current architecture
+2. Existing modules
+3. Existing database schema
+4. Existing API routes
+5. Existing authentication flow
+6. Existing AI generation flow
+7. Existing Build Plan flow
+8. Existing GitHub flow
+9. Existing deployment flows
+10. Existing credential/security architecture
+11. Existing E2B architecture
+12. Existing legacy workspace dependencies
+13. Existing automated tests
+14. Existing deployment tests
+15. Current technical debt
+16. Exact files/modules that need modification for Priority 0
+17. Recommended implementation order
+
+Clearly mark each item:
+
+[COMPLETE]
+[PARTIAL]
+[MISSING]
+[TECHNICAL DEBT]
+
+Do not implement new functionality until this audit is completed and reviewed.
+
+---
+
+## And I would make one strategic change to your roadmap
+
+Your original four-layer model was:
+
+**Create → Preview → Own → Deploy**
+
+I would keep it.
+
+But internally I'd now define Neyla as:
+
+# **Create → Understand → Build → Own → Deploy**
+
+Where **Understand** is your emerging moat.
+
+Because the future difference between Neyla and a generic AI coding tool isn't necessarily the quality of the initial generation.
+
+It is:
+
+> **Can Neyla understand an application it created three months ago and safely change it without breaking everything?**
+
+That leads naturally to:
+
+**Project Context → Project Memory → Build Plans → Change Impact → Automated Testing → Deployment**
+
+And *that* is something your current architecture is already positioned to build.
+
+For the next 90 days, I would therefore resist the temptation to expand Neyla's surface area. **Make one thing exceptionally good: a startup founder can arrive with an idea on Monday and have a real, GitHub-owned, production application running by the end of the day.**
+
+Once you achieve that reliably, **then Neyla.dev/MCP becomes a natural second product rather than another unfinished subsystem.**

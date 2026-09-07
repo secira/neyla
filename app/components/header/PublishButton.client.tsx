@@ -22,6 +22,14 @@ interface DeploymentResponse {
   awsConfigured: boolean;
 }
 
+interface DeploymentLog {
+  id: number;
+  phase: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  createdAt: string;
+}
+
 interface DeploymentApiResponse {
   error?: string;
   deployment?: DeploymentInfo | null;
@@ -71,11 +79,27 @@ async function fetchDeployment(workspaceId: string): Promise<DeploymentResponse 
   }
 }
 
+async function fetchDeploymentLogs(workspaceId: string): Promise<DeploymentLog[]> {
+  try {
+    const res = await fetch(`/api/deployments/workspace/${workspaceId}/logs`, { credentials: 'include' });
+
+    if (!res.ok) {
+      return [];
+    }
+
+    const data = (await res.json()) as { logs?: DeploymentLog[] };
+    return Array.isArray(data.logs) ? data.logs : [];
+  } catch {
+    return [];
+  }
+}
+
 export function PublishButton() {
   const user = useStore(authUserAtom);
   const [open, setOpen] = useState(false);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [info, setInfo] = useState<DeploymentResponse | null>(null);
+  const [logs, setLogs] = useState<DeploymentLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [revoking, setRevoking] = useState(false);
@@ -113,11 +137,12 @@ export function PublishButton() {
     }
 
     pollRef.current = setInterval(async () => {
-      const fresh = await fetchDeployment(workspaceId);
+      const [fresh, freshLogs] = await Promise.all([fetchDeployment(workspaceId), fetchDeploymentLogs(workspaceId)]);
 
       if (fresh) {
         setInfo(fresh);
       }
+      setLogs(freshLogs);
     }, 4000);
 
     return () => {
@@ -156,8 +181,9 @@ export function PublishButton() {
 
       setWorkspaceId(wsId);
 
-      const fresh = await fetchDeployment(wsId);
-      setInfo(fresh);
+       const [fresh, freshLogs] = await Promise.all([fetchDeployment(wsId), fetchDeploymentLogs(wsId)]);
+       setInfo(fresh);
+       setLogs(freshLogs);
     } finally {
       setLoading(false);
     }
@@ -199,6 +225,7 @@ export function PublishButton() {
       }
 
       setInfo({ deployment: data.deployment ?? null, awsConfigured: true });
+      setLogs(await fetchDeploymentLogs(workspaceId));
       toast.success('Publishing started!');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to publish');
@@ -235,6 +262,7 @@ export function PublishButton() {
 
       const fresh = await fetchDeployment(workspaceId);
       setInfo(fresh);
+      setLogs(await fetchDeploymentLogs(workspaceId));
       toast.success('Deployment credential revoked. Publish again to reconnect your server.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to revoke deployment credential');
@@ -365,6 +393,39 @@ export function PublishButton() {
                     <div className="i-ph:arrow-square-out" />
                     <span>{deployment.url.replace(/^https?:\/\//, '')}</span>
                   </a>
+                </div>
+              )}
+
+              {deployment && logs.length > 0 && (
+                <div className="rounded-md border border-bolt-elements-borderColor bg-bolt-elements-background-depth-3 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-bolt-elements-textPrimary">Recent activity</span>
+                    <span className="text-[10px] text-bolt-elements-textTertiary">{logs.length} events</span>
+                  </div>
+                  <div className="max-h-36 space-y-2 overflow-y-auto pr-1">
+                    {logs
+                      .slice(-8)
+                      .reverse()
+                      .map((log) => (
+                        <div key={log.id} className="flex items-start gap-2 text-xs">
+                          <div
+                            className={
+                              log.level === 'error'
+                                ? 'i-ph:x-circle mt-0.5 text-red-500'
+                                : log.level === 'success'
+                                  ? 'i-ph:check-circle mt-0.5 text-green-500'
+                                  : log.level === 'warning'
+                                    ? 'i-ph:warning mt-0.5 text-amber-500'
+                                    : 'i-ph:circle-dashed mt-0.5 text-bolt-elements-textTertiary'
+                            }
+                          />
+                          <div className="min-w-0">
+                            <div className="text-bolt-elements-textPrimary">{log.message}</div>
+                            <div className="text-[10px] capitalize text-bolt-elements-textTertiary">{log.phase.replace('_', ' ')}</div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               )}
 
