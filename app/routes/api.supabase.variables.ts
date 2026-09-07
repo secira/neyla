@@ -23,15 +23,18 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     const apiKeys = (await response.json()) as Array<{ name?: string; api_key?: string }>;
-    const publicApiKeys = apiKeys.filter(
-      (key) => (key.name === 'anon' || key.name === 'public') && typeof key.api_key === 'string',
-    );
+    const publicApiKeys = apiKeys
+      .filter((key) => (key.name === 'anon' || key.name === 'public') && typeof key.api_key === 'string')
+      .map((key) => ({
+        name: key.name,
+        api_key: key.api_key,
+      }));
 
     // The Supabase service_role key is a server secret and must never cross
     // this boundary. The browser only needs the publishable anon key.
     return json({ apiKeys: publicApiKeys });
   } catch (error) {
-    console.error('Error fetching project API keys:', error);
-    return json({ error: error instanceof Error ? error.message : 'Unknown error occurred' }, { status: 500 });
+    console.error('Error fetching project API keys:', error instanceof Error ? error.name : 'unknown');
+    return json({ error: 'Failed to fetch project API keys' }, { status: 500 });
   }
 }

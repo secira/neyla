@@ -13,6 +13,10 @@ const MAX_FILES = 500;
 const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10 MB
 const AGENT_STALE_MS = 60 * 1000;
 
+function safeErrorLabel(error) {
+  return error?.code || error?.name || 'unknown';
+}
+
 function getServerBase() {
   if (process.env.PUBLIC_APP_URL) {
     return process.env.PUBLIC_APP_URL.replace(/\/$/, '');
@@ -136,7 +140,7 @@ router.get('/agent/:id/poll', async (req, res) => {
 
     return res.json({ version: deployment.bundle_version });
   } catch (err) {
-    console.error('Agent poll error:', err);
+    console.error('Agent poll error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Poll failed' });
   }
 });
@@ -159,7 +163,7 @@ router.get('/agent/:id/bundle', async (req, res) => {
 
     return res.json({ version: bundle.rows[0].version, files: bundle.rows[0].files });
   } catch (err) {
-    console.error('Agent bundle error:', err);
+    console.error('Agent bundle error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Bundle fetch failed' });
   }
 });
@@ -192,7 +196,7 @@ router.post('/agent/:id/status', async (req, res) => {
 
     return res.json({ ok: true });
   } catch (err) {
-    console.error('Agent status error:', err);
+    console.error('Agent status error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Status update failed' });
   }
 });
@@ -236,7 +240,7 @@ router.get('/workspace/:workspaceId', async (req, res) => {
 
     return res.json({ deployment: publicView(result.rows[0]), awsConfigured: isAwsConfigured() });
   } catch (err) {
-    console.error('Get deployment error:', err);
+    console.error('Get deployment error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Failed to fetch deployment' });
   }
 });
@@ -435,7 +439,7 @@ router.post('/workspace/:workspaceId/publish', async (req, res) => {
 
     return res.status(202).json({ deployment: publicView(fresh.rows[0]) });
   } catch (err) {
-    console.error('Publish error:', err);
+    console.error('Publish error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Failed to publish' });
   }
 });

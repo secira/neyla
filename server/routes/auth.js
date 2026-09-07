@@ -19,6 +19,10 @@ const COOKIE_OPTIONS = {
   path: '/',
 };
 
+function safeErrorLabel(error) {
+  return error?.code || error?.name || 'unknown';
+}
+
 router.post('/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body;
@@ -57,7 +61,7 @@ router.post('/signup', async (req, res) => {
     res.cookie('neyla_token', token, COOKIE_OPTIONS);
     return res.status(201).json({ user });
   } catch (err) {
-    console.error('Signup error:', err);
+    console.error('Signup error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Failed to create account' });
   }
 });
@@ -98,7 +102,7 @@ router.post('/login', async (req, res) => {
     res.cookie('neyla_token', token, COOKIE_OPTIONS);
     return res.json({ user: safeUser });
   } catch (err) {
-    console.error('Login error:', err);
+    console.error('Login error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Login failed' });
   }
 });
@@ -121,7 +125,7 @@ router.get('/me', requireAuth, async (req, res) => {
 
     return res.json({ user: result.rows[0] });
   } catch (err) {
-    console.error('Me error:', err);
+    console.error('Me error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Failed to fetch user' });
   }
 });
@@ -183,7 +187,7 @@ router.get('/google/callback', async (req, res) => {
     const tokenData = await tokenRes.json();
 
     if (tokenData.error) {
-      console.error('Google token exchange failed:', tokenData.error || 'unknown provider error');
+      console.error('Google token exchange failed:', safeErrorLabel(tokenData.error));
       return res.redirect('/auth/popup-success?auth_error=google_token_failed');
     }
 
@@ -423,7 +427,7 @@ router.get('/settings', requireAuth, async (req, res) => {
 
     return res.json({ settings: result.rows[0].settings || {} });
   } catch (err) {
-    console.error('Get settings error:', err);
+    console.error('Get settings error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Failed to fetch settings' });
   }
 });
@@ -443,7 +447,7 @@ router.put('/settings', requireAuth, async (req, res) => {
 
     return res.json({ success: true });
   } catch (err) {
-    console.error('Update settings error:', err);
+    console.error('Update settings error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Failed to update settings' });
   }
 });
@@ -530,7 +534,7 @@ router.get('/github/status', requireAuth, async (req, res) => {
       hasRepoScope: scopes.includes('repo'),
     });
   } catch (err) {
-    console.error('GitHub status error:', err);
+    console.error('GitHub status error:', safeErrorLabel(err));
     return res.status(500).json({ error: 'Failed to check GitHub connection' });
   }
 });

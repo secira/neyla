@@ -54,7 +54,7 @@ async function githubUserLoader({ request, context }: { request: Request; contex
       type: userData.type,
     });
   } catch (error) {
-    console.error('Error fetching GitHub user:', error);
+    console.error('Error fetching GitHub user:', error instanceof Error ? error.name : 'unknown');
     return json(
       {
         error: 'Failed to fetch GitHub user information',
@@ -262,7 +262,7 @@ async function githubUserAction({ request, context }: { request: Request; contex
 
     return json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('Error in GitHub user action:', error);
+    console.error('Error in GitHub user action:', error instanceof Error ? error.name : 'unknown');
     return json(
       {
         error: 'Failed to process GitHub request',
