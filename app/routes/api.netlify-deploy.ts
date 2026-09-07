@@ -1,6 +1,7 @@
 import { type ActionFunctionArgs, json } from '@remix-run/cloudflare';
 import crypto from 'crypto';
 import type { NetlifySiteInfo } from '~/types/netlify';
+import { getApiKeysFromCookie } from '~/lib/api/cookies';
 
 interface DeployRequestBody {
   siteId?: string;
@@ -8,29 +9,31 @@ interface DeployRequestBody {
   chatId: string;
 }
 
-async function readNetlifyError(response: Response) {
-  try {
-    const contentType = response.headers.get('content-type') || '';
+function getNetlifyToken(request: Request, context: any): string | undefined {
+  const apiKeys = getApiKeysFromCookie(request.headers.get('Cookie'));
 
-    if (contentType.includes('application/json')) {
-      const data = (await response.json()) as { message?: string; error?: string } | undefined;
-      return data?.message || data?.error || JSON.stringify(data);
-    }
-
-    const text = await response.text();
-
-    return text;
-  } catch {
-    return undefined;
-  }
+  return (
+    apiKeys.VITE_NETLIFY_ACCESS_TOKEN ||
+    context?.cloudflare?.env?.VITE_NETLIFY_ACCESS_TOKEN ||
+    process.env.VITE_NETLIFY_ACCESS_TOKEN
+  );
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+function connectionError(response: Response, operation: string) {
+  if (response.status === 401 || response.status === 403) {
+    return json({ error: 'Your Netlify connection expired. Reconnect Netlify in Settings and try again.' }, { status: 401 });
+  }
+
+  return json({ error: `Failed to ${operation}` }, { status: response.status >= 400 ? response.status : 500 });
+}
+
+export async function action({ request, context }: ActionFunctionArgs) {
   try {
-    const { siteId, files, token, chatId } = (await request.json()) as DeployRequestBody & { token: string };
+    const { siteId, files, chatId } = (await request.json()) as DeployRequestBody;
+    const token = getNetlifyToken(request, context);
 
     if (!token) {
-      return json({ error: 'Not connected to Netlify' }, { status: 401 });
+      return json({ error: 'Netlify is not connected. Connect Netlify in Settings and try again.' }, { status: 401 });
     }
 
     let targetSiteId = siteId;
@@ -52,11 +55,7 @@ export async function action({ request }: ActionFunctionArgs) {
       });
 
       if (!createSiteResponse.ok) {
-        const errorDetail = await readNetlifyError(createSiteResponse);
-        return json(
-          { error: `Failed to create site${errorDetail ? `: ${errorDetail}` : ''}` },
-          { status: createSiteResponse.status },
-        );
+        return connectionError(createSiteResponse, 'create the Netlify site');
       }
 
       const newSite = (await createSiteResponse.json()) as any;
@@ -85,6 +84,9 @@ export async function action({ request }: ActionFunctionArgs) {
             chatId,
           };
         } else {
+          if (siteResponse.status === 401 || siteResponse.status === 403) {
+            return connectionError(siteResponse, 'load the Netlify site');
+          }
           targetSiteId = undefined;
         }
       }
@@ -105,11 +107,7 @@ export async function action({ request }: ActionFunctionArgs) {
         });
 
         if (!createSiteResponse.ok) {
-          const errorDetail = await readNetlifyError(createSiteResponse);
-          return json(
-            { error: `Failed to create site${errorDetail ? `: ${errorDetail}` : ''}` },
-            { status: createSiteResponse.status },
-          );
+          return connectionError(createSiteResponse, 'create the Netlify site');
         }
 
         const newSite = (await createSiteResponse.json()) as any;
@@ -151,11 +149,7 @@ export async function action({ request }: ActionFunctionArgs) {
     });
 
     if (!deployResponse.ok) {
-      const errorDetail = await readNetlifyError(deployResponse);
-      return json(
-        { error: `Failed to create deployment${errorDetail ? `: ${errorDetail}` : ''}` },
-        { status: deployResponse.status },
-      );
+      return connectionError(deployResponse, 'create the Netlify deployment');
     }
 
     const deploy = (await deployResponse.json()) as any;
@@ -172,11 +166,7 @@ export async function action({ request }: ActionFunctionArgs) {
       });
 
       if (!statusResponse.ok) {
-        const errorDetail = await readNetlifyError(statusResponse);
-        return json(
-          { error: `Failed to check deployment status${errorDetail ? `: ${errorDetail}` : ''}` },
-          { status: statusResponse.status },
-        );
+        return connectionError(statusResponse, 'check the Netlify deployment');
       }
 
       const status = (await statusResponse.json()) as any;
@@ -210,6 +200,10 @@ export async function action({ request }: ActionFunctionArgs) {
               uploadSuccess = uploadResponse.ok;
 
               if (!uploadSuccess) {
+                if (uploadResponse.status === 401 || uploadResponse.status === 403) {
+                  return connectionError(uploadResponse, 'upload the Netlify deployment files');
+                }
+
                 console.error('Upload failed:', await uploadResponse.text());
                 uploadRetries++;
                 await new Promise((resolve) => setTimeout(resolve, 2000));

@@ -13,7 +13,7 @@ export function useNetlifyDeploy() {
   const currentChatId = useStore(chatId);
 
   const handleNetlifyDeploy = async () => {
-    if (!netlifyConn.user || !netlifyConn.token) {
+    if (!netlifyConn.user) {
       toast.error('Please connect to Netlify first in the settings tab!');
       return false;
     }
@@ -120,7 +120,6 @@ export function useNetlifyDeploy() {
         body: JSON.stringify({
           siteId: existingSiteId || undefined,
           files: fileContents,
-          token: netlifyConn.token,
           chatId: currentChatId,
         }),
       });
@@ -138,54 +137,6 @@ export function useNetlifyDeploy() {
         throw new Error(data.error || 'Invalid deployment response');
       }
 
-      const maxAttempts = 20; // 2 minutes timeout
-      let attempts = 0;
-      let deploymentStatus;
-
-      while (attempts < maxAttempts) {
-        try {
-          const statusResponse = await fetch(
-            `https://api.netlify.com/api/v1/sites/${data.site.id}/deploys/${data.deploy.id}`,
-            {
-              headers: {
-                Authorization: `Bearer ${netlifyConn.token}`,
-              },
-            },
-          );
-
-          deploymentStatus = (await statusResponse.json()) as any;
-
-          if (deploymentStatus.state === 'ready' || deploymentStatus.state === 'uploaded') {
-            break;
-          }
-
-          if (deploymentStatus.state === 'error') {
-            // Notify that deployment failed
-            deployArtifact.runner.handleDeployAction('deploying', 'failed', {
-              error: 'Deployment failed: ' + (deploymentStatus.error_message || 'Unknown error'),
-              source: 'netlify',
-            });
-            throw new Error('Deployment failed: ' + (deploymentStatus.error_message || 'Unknown error'));
-          }
-
-          attempts++;
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        } catch (error) {
-          console.error('Status check error:', error);
-          attempts++;
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-      }
-
-      if (attempts >= maxAttempts) {
-        // Notify that deployment timed out
-        deployArtifact.runner.handleDeployAction('deploying', 'failed', {
-          error: 'Deployment timed out',
-          source: 'netlify',
-        });
-        throw new Error('Deployment timed out');
-      }
-
       // Store the site ID if it's a new site
       if (data.site) {
         localStorage.setItem(`netlify-site-${currentChatId}`, data.site.id);
@@ -193,7 +144,7 @@ export function useNetlifyDeploy() {
 
       // Notify that deployment completed successfully
       deployArtifact.runner.handleDeployAction('complete', 'complete', {
-        url: deploymentStatus.ssl_url || deploymentStatus.url,
+        url: data.deploy.url,
         source: 'netlify',
       });
 

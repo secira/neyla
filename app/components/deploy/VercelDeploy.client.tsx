@@ -13,7 +13,7 @@ export function useVercelDeploy() {
   const currentChatId = useStore(chatId);
 
   const handleVercelDeploy = async () => {
-    if (!vercelConn.user || !vercelConn.token) {
+    if (!vercelConn.user) {
       toast.error('Please connect to Vercel first in the settings tab!');
       return false;
     }
@@ -136,7 +136,6 @@ export function useVercelDeploy() {
           projectId: existingProjectId || undefined,
           files: fileContents,
           sourceFiles: allProjectFiles,
-          token: vercelConn.token,
           chatId: currentChatId,
         }),
       });

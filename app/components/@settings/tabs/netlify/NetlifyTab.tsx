@@ -9,6 +9,7 @@ import { Button } from '~/components/ui/Button';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '~/components/ui/Collapsible';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '~/components/ui/Badge';
+import Cookies from 'js-cookie';
 
 interface ConnectionTestResult {
   status: 'success' | 'error' | 'testing';
@@ -468,6 +469,9 @@ export default function NetlifyTab() {
 
       const userData = (await response.json()) as NetlifyUser;
 
+      // Keep the credential available only to same-origin server routes for deployment.
+      Cookies.set('VITE_NETLIFY_ACCESS_TOKEN', tokenInput, { expires: 365 });
+
       // Update the connection store
       updateNetlifyConnection({
         user: userData,
@@ -492,6 +496,7 @@ export default function NetlifyTab() {
     localStorage.removeItem('netlify_connection');
 
     // Remove cookies
+    Cookies.remove('VITE_NETLIFY_ACCESS_TOKEN');
     document.cookie = 'netlifyToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
 
     // Update the store

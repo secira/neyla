@@ -12,7 +12,7 @@ export function VercelDeploymentLink() {
 
   useEffect(() => {
     async function fetchProjectData() {
-      if (!connection.token || !currentChatId) {
+      if (!connection.user || !currentChatId) {
         return;
       }
 
@@ -26,87 +26,10 @@ export function VercelDeploymentLink() {
       setIsLoading(true);
 
       try {
-        // Fetch projects directly from the API
-        const projectsResponse = await fetch('https://api.vercel.com/v9/projects', {
-          headers: {
-            Authorization: `Bearer ${connection.token}`,
-            'Content-Type': 'application/json',
-          },
-          cache: 'no-store',
-        });
-
-        if (!projectsResponse.ok) {
-          throw new Error(`Failed to fetch projects: ${projectsResponse.status}`);
-        }
-
-        const projectsData = (await projectsResponse.json()) as any;
-        const projects = projectsData.projects || [];
-
-        // Extract the chat number from currentChatId
-        const chatNumber = currentChatId.split('-')[0];
-
-        // Find project by matching the chat number in the name
-        const project = projects.find((p: { name: string | string[] }) => p.name.includes(`bolt-diy-${chatNumber}`));
-
-        if (project) {
-          // Fetch project details including deployments
-          const projectDetailsResponse = await fetch(`https://api.vercel.com/v9/projects/${project.id}`, {
-            headers: {
-              Authorization: `Bearer ${connection.token}`,
-              'Content-Type': 'application/json',
-            },
-            cache: 'no-store',
-          });
-
-          if (projectDetailsResponse.ok) {
-            const projectDetails = (await projectDetailsResponse.json()) as any;
-
-            // Try to get URL from production aliases first
-            if (projectDetails.targets?.production?.alias && projectDetails.targets.production.alias.length > 0) {
-              // Find the clean URL (without -projects.vercel.app)
-              const cleanUrl = projectDetails.targets.production.alias.find(
-                (a: string) => a.endsWith('.vercel.app') && !a.includes('-projects.vercel.app'),
-              );
-
-              if (cleanUrl) {
-                setDeploymentUrl(`https://${cleanUrl}`);
-                return;
-              } else {
-                // If no clean URL found, use the first alias
-                setDeploymentUrl(`https://${projectDetails.targets.production.alias[0]}`);
-                return;
-              }
-            }
-          }
-
-          // If no aliases or project details failed, try fetching deployments
-          const deploymentsResponse = await fetch(
-            `https://api.vercel.com/v6/deployments?projectId=${project.id}&limit=1`,
-            {
-              headers: {
-                Authorization: `Bearer ${connection.token}`,
-                'Content-Type': 'application/json',
-              },
-              cache: 'no-store',
-            },
-          );
-
-          if (deploymentsResponse.ok) {
-            const deploymentsData = (await deploymentsResponse.json()) as any;
-
-            if (deploymentsData.deployments && deploymentsData.deployments.length > 0) {
-              setDeploymentUrl(`https://${deploymentsData.deployments[0].url}`);
-              return;
-            }
-          }
-        }
-
-        // Fallback to API call if not found in fetched projects
-        const fallbackResponse = await fetch(`/api/vercel-deploy?projectId=${projectId}`, {
+        // The server resolves the Vercel credential from the authenticated connection.
+        const fallbackResponse = await fetch(`/api/vercel-deploy?projectId=${encodeURIComponent(projectId)}`, {
           method: 'GET',
-          headers: {
-            Authorization: `Bearer ${connection.token}`,
-          },
+          cache: 'no-store',
         });
 
         const data = await fallbackResponse.json();
@@ -124,7 +47,7 @@ export function VercelDeploymentLink() {
     }
 
     fetchProjectData();
-  }, [connection.token, currentChatId]);
+  }, [connection.user, currentChatId]);
 
   if (!deploymentUrl) {
     return null;

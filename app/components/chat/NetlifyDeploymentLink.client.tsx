@@ -1,20 +1,43 @@
 import { useStore } from '@nanostores/react';
-import { netlifyConnection, fetchNetlifyStats } from '~/lib/stores/netlify';
+import { netlifyConnection } from '~/lib/stores/netlify';
 import { chatId } from '~/lib/persistence/useChatHistory';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export function NetlifyDeploymentLink() {
   const connection = useStore(netlifyConnection);
   const currentChatId = useStore(chatId);
+  const [deployedSite, setDeployedSite] = useState<{ id: string; name: string; url: string } | undefined>();
 
   useEffect(() => {
-    if (connection.token && currentChatId) {
-      fetchNetlifyStats(connection.token);
-    }
-  }, [connection.token, currentChatId]);
+    async function fetchSites() {
+      if (!connection.user || !currentChatId) {
+        return;
+      }
 
-  const deployedSite = connection.stats?.sites?.find((site) => site.name.includes(`bolt-diy-${currentChatId}`));
+      try {
+        const response = await fetch('/api/netlify-user', {
+          method: 'POST',
+          body: new URLSearchParams({ action: 'get_sites' }),
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as { sites?: Array<{ id: string; name: string; url: string }> };
+        const site = data.sites?.find((candidate) => candidate.name.includes(`bolt-diy-${currentChatId}`));
+
+        if (site) {
+          setDeployedSite(site);
+        }
+      } catch (error) {
+        console.error('Error fetching Netlify deployment:', error);
+      }
+    }
+
+    fetchSites();
+  }, [connection.user, currentChatId]);
 
   if (!deployedSite) {
     return null;

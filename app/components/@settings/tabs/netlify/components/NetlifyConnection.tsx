@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { classNames } from '~/utils/classNames';
 import { useStore } from '@nanostores/react';
+import Cookies from 'js-cookie';
 import { netlifyConnection, updateNetlifyConnection, initializeNetlifyConnection } from '~/lib/stores/netlify';
 import type { NetlifySite, NetlifyDeploy, NetlifyBuild, NetlifyUser } from '~/types/netlify';
 import {
@@ -415,6 +416,8 @@ export default function NetlifyConnection() {
 
       const userData = (await response.json()) as NetlifyUser;
 
+      Cookies.set('VITE_NETLIFY_ACCESS_TOKEN', tokenInput, { expires: 365 });
+
       // Update the connection store
       updateNetlifyConnection({
         user: userData,
@@ -439,6 +442,7 @@ export default function NetlifyConnection() {
     localStorage.removeItem('netlify_connection');
 
     // Remove cookies
+    Cookies.remove('VITE_NETLIFY_ACCESS_TOKEN');
     document.cookie = 'netlifyToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
 
     // Update the store

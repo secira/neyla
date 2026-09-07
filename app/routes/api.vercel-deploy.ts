@@ -1,5 +1,6 @@
 import { type ActionFunctionArgs, type LoaderFunctionArgs, json } from '@remix-run/cloudflare';
 import type { VercelProjectInfo } from '~/types/vercel';
+import { getApiKeysFromCookie } from '~/lib/api/cookies';
 
 // Function to detect framework from project files
 const detectFramework = (files: Record<string, string>): string => {
@@ -172,15 +173,28 @@ const detectFramework = (files: Record<string, string>): string => {
   return 'other';
 };
 
+function getVercelToken(request: Request, context: any): string | undefined {
+  const apiKeys = getApiKeysFromCookie(request.headers.get('Cookie'));
+
+  return apiKeys.VITE_VERCEL_ACCESS_TOKEN || context?.cloudflare?.env?.VITE_VERCEL_ACCESS_TOKEN || process.env.VITE_VERCEL_ACCESS_TOKEN;
+}
+
+function connectionError(response: Response, operation: string) {
+  if (response.status === 401 || response.status === 403) {
+    return json({ error: 'Your Vercel connection expired. Reconnect Vercel in Settings and try again.' }, { status: 401 });
+  }
+
+  return json({ error: `Failed to ${operation}` }, { status: response.status >= 400 ? response.status : 500 });
+}
+
 // Add loader function to handle GET requests
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request, context }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const projectId = url.searchParams.get('projectId');
-  const token =
-    request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token');
+  const token = getVercelToken(request, context);
 
   if (!projectId || !token) {
-    return json({ error: 'Missing projectId or token' }, { status: 400 });
+    return json({ error: 'Vercel is not connected. Connect Vercel in Settings and try again.' }, { status: 401 });
   }
 
   try {
@@ -192,6 +206,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
 
     if (!projectResponse.ok) {
+      if (projectResponse.status === 401 || projectResponse.status === 403) {
+        return connectionError(projectResponse, 'load the Vercel project');
+      }
+
       return json({ error: 'Failed to fetch project' }, { status: 400 });
     }
 
@@ -205,6 +223,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
 
     if (!deploymentsResponse.ok) {
+      if (deploymentsResponse.status === 401 || deploymentsResponse.status === 403) {
+        return connectionError(deploymentsResponse, 'load Vercel deployments');
+      }
+
       return json({ error: 'Failed to fetch deployments' }, { status: 400 });
     }
 
@@ -241,14 +263,13 @@ interface DeployRequestBody {
 }
 
 // Existing action function for POST requests
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request, context }: ActionFunctionArgs) {
   try {
-    const { projectId, files, sourceFiles, token, chatId, framework } = (await request.json()) as DeployRequestBody & {
-      token: string;
-    };
+    const { projectId, files, sourceFiles, chatId, framework } = (await request.json()) as DeployRequestBody;
+    const token = getVercelToken(request, context);
 
     if (!token) {
-      return json({ error: 'Not connected to Vercel' }, { status: 401 });
+      return json({ error: 'Vercel is not connected. Connect Vercel in Settings and try again.' }, { status: 401 });
     }
 
     let targetProjectId = projectId;
@@ -278,11 +299,7 @@ export async function action({ request }: ActionFunctionArgs) {
       });
 
       if (!createProjectResponse.ok) {
-        const errorData = (await createProjectResponse.json()) as any;
-        return json(
-          { error: `Failed to create project: ${errorData.error?.message || 'Unknown error'}` },
-          { status: 400 },
-        );
+        return connectionError(createProjectResponse, 'create the Vercel project');
       }
 
       const newProject = (await createProjectResponse.json()) as any;
@@ -310,6 +327,10 @@ export async function action({ request }: ActionFunctionArgs) {
           chatId,
         };
       } else {
+        if (projectResponse.status === 401 || projectResponse.status === 403) {
+          return connectionError(projectResponse, 'load the Vercel project');
+        }
+
         // If project doesn't exist, create a new one
         const projectName = `bolt-diy-${chatId}-${Date.now()}`;
         const createProjectResponse = await fetch('https://api.vercel.com/v9/projects', {
@@ -325,11 +346,7 @@ export async function action({ request }: ActionFunctionArgs) {
         });
 
         if (!createProjectResponse.ok) {
-          const errorData = (await createProjectResponse.json()) as any;
-          return json(
-            { error: `Failed to create project: ${errorData.error?.message || 'Unknown error'}` },
-            { status: 400 },
-          );
+          return connectionError(createProjectResponse, 'create the Vercel project');
         }
 
         const newProject = (await createProjectResponse.json()) as any;
@@ -425,11 +442,7 @@ export async function action({ request }: ActionFunctionArgs) {
     });
 
     if (!deployResponse.ok) {
-      const errorData = (await deployResponse.json()) as any;
-      return json(
-        { error: `Failed to create deployment: ${errorData.error?.message || 'Unknown error'}` },
-        { status: 400 },
-      );
+      return connectionError(deployResponse, 'create the Vercel deployment');
     }
 
     const deployData = (await deployResponse.json()) as any;
@@ -455,6 +468,8 @@ export async function action({ request }: ActionFunctionArgs) {
         if (status.readyState === 'READY' || status.readyState === 'ERROR') {
           break;
         }
+      } else if (statusResponse.status === 401 || statusResponse.status === 403) {
+        return connectionError(statusResponse, 'check the Vercel deployment');
       }
 
       retryCount++;
