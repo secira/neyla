@@ -550,7 +550,10 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
                   provider={provider}
                   setProvider={setProvider}
-                  providerList={curateProviderList(providerList || (PROVIDER_LIST as ProviderInfo[]), apiKeys)}
+                  providerList={curateProviderList(
+                    providerList && providerList.length > 0 ? providerList : (PROVIDER_LIST as ProviderInfo[]),
+                    apiKeys,
+                  )}
                   model={model}
                   setModel={setModel}
                   modelList={modelList}

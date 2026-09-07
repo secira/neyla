@@ -6,23 +6,47 @@ interface FrameworkLinkProps {
   template: Template;
 }
 
-const FrameworkLink: React.FC<FrameworkLinkProps> = ({ template }) => (
-  <a
-    href={`/git?url=https://github.com/${template.githubRepo}.git`}
-    data-state="closed"
-    data-discover="true"
-    className="flex flex-col items-center justify-center gap-1 group"
-    title={template.label}
-  >
-    <div
-      className={`inline-block ${template.icon} w-7 h-7 transition-all grayscale group-hover:grayscale-0 group-hover:scale-110 opacity-60 group-hover:opacity-100`}
-      style={{ transition: 'all 0.2s ease' }}
-    />
-    <span className="text-[9px] text-bolt-elements-textTertiary group-hover:text-bolt-elements-textSecondary transition-colors">
-      {template.label}
-    </span>
-  </a>
-);
+const isValidGithubRepo = (repo: string) => /^[\w.-]+\/[\w.-]+$/.test(repo);
+
+const FrameworkLink: React.FC<FrameworkLinkProps> = ({ template }) => {
+  const validRepo = isValidGithubRepo(template.githubRepo);
+  const content = (
+    <>
+      <div
+        className={`inline-block ${template.icon} w-7 h-7 transition-all grayscale group-hover:grayscale-0 group-hover:scale-110 opacity-60 group-hover:opacity-100`}
+        style={{ transition: 'all 0.2s ease' }}
+      />
+      <span className="text-[9px] text-bolt-elements-textSecondary transition-colors">{template.label}</span>
+      <span className="max-w-24 text-center text-[9px] leading-tight text-bolt-elements-textTertiary">
+        {validRepo ? template.description : 'Template currently unavailable'}
+      </span>
+    </>
+  );
+
+  if (!validRepo) {
+    return (
+      <div
+        className="flex max-w-28 flex-col items-center justify-center gap-1 opacity-60"
+        aria-label={`${template.label} is currently unavailable`}
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={`/git?url=${encodeURIComponent(`https://github.com/${template.githubRepo}.git`)}`}
+      data-state="closed"
+      data-discover="true"
+      className="group flex max-w-28 flex-col items-center justify-center gap-1"
+      title={template.description}
+      aria-label={`${template.label}: ${template.description}`}
+    >
+      {content}
+    </a>
+  );
+};
 
 const StarterTemplates: React.FC = () => {
   return (

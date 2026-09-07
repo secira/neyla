@@ -13,6 +13,8 @@ const MAX_FILES = 500;
 const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10 MB
 const AGENT_STALE_MS = 60 * 1000;
 const DEPLOYMENT_LOG_LIMIT = 100;
+const PUBLIC_HEALTH_CHECK_ATTEMPTS = 3;
+const PUBLIC_HEALTH_CHECK_TIMEOUT_MS = 5000;
 const DEPLOYMENT_LOG_PHASES = new Set([
   'provisioning',
   'booting',
@@ -64,6 +66,35 @@ function agentProgressMessage(detail) {
   return allowedMessages.has(detail) ? detail : 'Deployment in progress';
 }
 
+async function checkPublicHealth(url) {
+  for (let attempt = 0; attempt < PUBLIC_HEALTH_CHECK_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PUBLIC_HEALTH_CHECK_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        redirect: 'manual',
+        signal: controller.signal,
+      });
+
+      if (response.status < 500) {
+        return true;
+      }
+    } catch {
+      // The public address can take a few seconds to become reachable.
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (attempt < PUBLIC_HEALTH_CHECK_ATTEMPTS - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+
+  return false;
+}
+
 function getServerBase() {
   if (process.env.PUBLIC_APP_URL) {
     return process.env.PUBLIC_APP_URL.replace(/\/$/, '');
@@ -100,9 +131,10 @@ async function setStatus(deploymentId, status, { detail = null, error = null, ex
 
 async function provisionInFlight(deployment) {
   await recordDeploymentLog(deployment.id, 'provisioning', 'info', 'Setting up your server on AWS');
+  let launchedInstanceId = null;
 
   try {
-    const instanceId = await launchInstance({
+    launchedInstanceId = await launchInstance({
       name: `neyla-${deployment.id.slice(0, 8)}`,
       userData: buildUserData({
         serverBase: getServerBase(),
@@ -113,7 +145,7 @@ async function provisionInFlight(deployment) {
 
     await pool.query(
       "UPDATE deployments SET instance_id = $1, status = 'booting', status_detail = 'Waiting for the server to start', updated_at = NOW() WHERE id = $2",
-      [instanceId, deployment.id],
+      [launchedInstanceId, deployment.id],
     );
     await recordDeploymentLog(deployment.id, 'booting', 'info', 'Server launched; waiting for it to start');
 
@@ -121,7 +153,7 @@ async function provisionInFlight(deployment) {
     for (let attempt = 0; attempt < 36; attempt++) {
       await new Promise((r) => setTimeout(r, 5000));
 
-      const state = await getInstanceState(instanceId);
+      const state = await getInstanceState(launchedInstanceId);
 
       if (state?.publicIp) {
         await pool.query(
@@ -145,9 +177,22 @@ async function provisionInFlight(deployment) {
     throw new Error('Timed out waiting for the server to get a public address');
   } catch (err) {
     console.error('Provisioning error:', err?.code || err?.name || 'unknown');
-    await setStatus(deployment.id, 'error', {
-      error: 'Failed to set up the server',
-    });
+    if (launchedInstanceId) {
+      try {
+        await terminateInstance(launchedInstanceId);
+      } catch (terminateError) {
+        console.error('Failed to clean up provisioning instance:', safeErrorLabel(terminateError));
+      }
+
+      await pool.query(
+        "UPDATE deployments SET instance_id = NULL, public_ip = NULL, url = NULL, status = 'error', status_detail = NULL, error = 'Failed to set up the server', updated_at = NOW() WHERE id = $1",
+        [deployment.id],
+      );
+    } else {
+      await setStatus(deployment.id, 'error', {
+        error: 'Failed to set up the server',
+      });
+    }
     await recordDeploymentLog(deployment.id, 'error', 'error', 'Failed to set up the server');
   }
 }
@@ -164,7 +209,7 @@ async function agentAuth(req, res) {
   }
 
   const result = await pool.query(
-    `SELECT id, workspace_id, user_id, bundle_version, status, status_detail, agent_token_ciphertext
+    `SELECT id, workspace_id, user_id, bundle_version, status, status_detail, url, public_ip, agent_token_ciphertext
      FROM deployments WHERE id = $1`,
     [req.params.id],
   );
@@ -241,6 +286,21 @@ router.post('/agent/:id/status', async (req, res) => {
     }
 
     if (status === 'live') {
+      const publicUrl = deployment.url || (deployment.public_ip ? `http://${deployment.public_ip}` : null);
+
+      if (!publicUrl || !(await checkPublicHealth(publicUrl))) {
+        await setStatus(deployment.id, 'error', {
+          error: 'The published app did not respond to a public health check',
+        });
+        await recordDeploymentLog(
+          deployment.id,
+          'health_check',
+          'error',
+          'The published app did not respond to a public health check',
+        );
+        return res.json({ ok: false, status: 'error' });
+      }
+
       await pool.query(
         "UPDATE deployments SET status = 'live', status_detail = NULL, error = NULL, deployed_version = $1, last_agent_poll = NOW(), updated_at = NOW() WHERE id = $2",
         [Number(version) || deployment.bundle_version, deployment.id],

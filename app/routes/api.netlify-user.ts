@@ -2,6 +2,10 @@ import { json } from '@remix-run/cloudflare';
 import { getApiKeysFromCookie } from '~/lib/api/cookies';
 import { withSecurity } from '~/lib/security';
 
+function safeErrorLabel(error: unknown) {
+  return error instanceof Error ? error.name : 'unknown';
+}
+
 async function netlifyUserLoader({ request, context }: { request: Request; context: any }) {
   try {
     // Get API keys from cookies (server-side only)
@@ -50,14 +54,8 @@ async function netlifyUserLoader({ request, context }: { request: Request; conte
       full_name: userData.full_name,
     });
   } catch (error) {
-    console.error('Error fetching Netlify user:', error);
-    return json(
-      {
-        error: 'Failed to fetch Netlify user information',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    );
+    console.error('Error fetching Netlify user:', safeErrorLabel(error));
+    return json({ error: 'Failed to fetch Netlify user information' }, { status: 500 });
   }
 }
 
@@ -125,14 +123,8 @@ async function netlifyUserAction({ request, context }: { request: Request; conte
 
     return json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('Error in Netlify user action:', error);
-    return json(
-      {
-        error: 'Failed to process Netlify request',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    );
+    console.error('Error in Netlify user action:', safeErrorLabel(error));
+    return json({ error: 'Failed to process Netlify request' }, { status: 500 });
   }
 }
 

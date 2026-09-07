@@ -2,6 +2,7 @@ import { atom } from 'nanostores';
 import type { VercelConnection } from '~/types/vercel';
 import { logStore } from './logs';
 import { toast } from 'react-toastify';
+import Cookies from 'js-cookie';
 
 // Auto-connect using environment variable
 const envToken = import.meta.env?.VITE_VERCEL_ACCESS_TOKEN;
@@ -49,6 +50,16 @@ if (storedConnection) {
 export const vercelConnection = atom<VercelConnection>(initialConnection);
 export const isConnecting = atom<boolean>(false);
 export const isFetchingStats = atom<boolean>(false);
+
+export function clearVercelConnection(reason = 'Your Vercel connection expired. Please reconnect.') {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('vercel_connection');
+    Cookies.remove('VITE_VERCEL_ACCESS_TOKEN');
+  }
+
+  vercelConnection.set({ user: null, token: '', stats: undefined });
+  toast.warning(reason);
+}
 
 export const updateVercelConnection = (updates: Partial<VercelConnection>) => {
   const currentState = vercelConnection.get();
@@ -151,7 +162,10 @@ export async function fetchVercelStats(token: string) {
     });
 
     if (!projectsResponse.ok) {
-      throw new Error(`Failed to fetch projects: ${projectsResponse.status}`);
+      if (projectsResponse.status === 401 || projectsResponse.status === 403) {
+        clearVercelConnection();
+      }
+      throw new Error(`Vercel statistics request failed (${projectsResponse.status})`);
     }
 
     const projectsData = (await projectsResponse.json()) as any;
@@ -196,9 +210,11 @@ export async function fetchVercelStats(token: string) {
       },
     });
   } catch (error) {
-    console.error('Vercel API Error:', error);
-    logStore.logError('Failed to fetch Vercel stats', { error });
-    toast.error('Failed to fetch Vercel statistics');
+    console.error('Vercel API Error:', error instanceof Error ? error.name : 'unknown');
+    logStore.logError('Failed to fetch Vercel stats');
+    if (!(error instanceof Error && error.message.startsWith('Vercel statistics request failed'))) {
+      toast.error('Failed to fetch Vercel statistics');
+    }
   } finally {
     isFetchingStats.set(false);
   }

@@ -11,6 +11,11 @@ export function getLocalStorage(key: string): any | null {
     return item ? JSON.parse(item) : null;
   } catch (error) {
     console.error(`Error reading from localStorage key "${key}":`, error);
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Storage can be unavailable or read-only; the caller still receives the safe default.
+    }
     return null;
   }
 }

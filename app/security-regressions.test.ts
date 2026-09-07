@@ -9,12 +9,15 @@ vi.mock('~/lib/api/cookies', () => ({
 }));
 
 import { loader as githubLoader } from './routes/api.github-user';
+import { loader as netlifyUserLoader } from './routes/api.netlify-user';
 import { action as supabaseAction } from './routes/api.supabase.variables';
 import { action as vercelAction, loader as vercelLoader } from './routes/api.vercel-deploy';
+import { loader as vercelUserLoader } from './routes/api.vercel-user';
 
 const GITHUB_TOKEN = 'github-credential-must-not-leak';
 const SUPABASE_SERVICE_ROLE = 'supabase-service-role-must-not-leak';
 const VERCEL_TOKEN = 'vercel-credential-must-not-leak';
+const NETLIFY_TOKEN = 'netlify-credential-must-not-leak';
 
 const jsonRequest = (url: string, body: unknown, headers: Record<string, string> = {}) =>
   new Request(url, {
@@ -207,6 +210,40 @@ describe('provider error boundaries', () => {
     expect(JSON.stringify(githubBody)).not.toContain(knownCredential);
     expect(JSON.stringify(vercelBody)).not.toContain(knownCredential);
     expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(knownCredential);
+  });
+
+  it('does not return provider details from Netlify or Vercel user errors', async () => {
+    getApiKeysMock.mockReturnValue({
+      VITE_NETLIFY_ACCESS_TOKEN: NETLIFY_TOKEN,
+      VITE_VERCEL_ACCESS_TOKEN: VERCEL_TOKEN,
+    });
+    fetchMock.mockRejectedValue(new Error(`provider failed with ${NETLIFY_TOKEN}`));
+
+    const netlifyResponse = await netlifyUserLoader({
+      request: new Request('https://app.example/api/netlify-user', {
+        headers: { 'X-Forwarded-For': 'provider-error-test' },
+      }),
+      context: testContext,
+      params: {},
+    });
+    const netlifyBody = await responseBody(netlifyResponse);
+
+    fetchMock.mockRejectedValue(new Error(`provider failed with ${VERCEL_TOKEN}`));
+    const vercelResponse = await vercelUserLoader({
+      request: new Request('https://app.example/api/vercel-user', {
+        headers: { 'X-Forwarded-For': 'provider-error-test' },
+      }),
+      context: testContext,
+      params: {},
+    });
+    const vercelBody = await responseBody(vercelResponse);
+
+    expect(netlifyBody).toEqual({ error: 'Failed to fetch Netlify user information' });
+    expect(vercelBody).toEqual({ error: 'Failed to fetch Vercel user information' });
+    expect(JSON.stringify(netlifyBody)).not.toContain(NETLIFY_TOKEN);
+    expect(JSON.stringify(vercelBody)).not.toContain(VERCEL_TOKEN);
+    expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(NETLIFY_TOKEN);
+    expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(VERCEL_TOKEN);
   });
 
   it('does not return provider-supplied Vercel deployment error details', async () => {

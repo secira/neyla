@@ -2,23 +2,41 @@ import { atom } from 'nanostores';
 import type { NetlifyConnection, NetlifyUser } from '~/types/netlify';
 import { logStore } from './logs';
 import { toast } from 'react-toastify';
+import Cookies from 'js-cookie';
 
 // Initialize with stored connection or environment variable
 const storedConnection = typeof window !== 'undefined' ? localStorage.getItem('netlify_connection') : null;
 const envToken = import.meta.env.VITE_NETLIFY_ACCESS_TOKEN;
 
 // If we have an environment token but no stored connection, initialize with the env token
-const initialConnection: NetlifyConnection = storedConnection
-  ? JSON.parse(storedConnection)
-  : {
-      user: null,
-      token: envToken || '',
-      stats: undefined,
-    };
+let initialConnection: NetlifyConnection = {
+  user: null,
+  token: envToken || '',
+  stats: undefined,
+};
+
+if (storedConnection) {
+  try {
+    initialConnection = JSON.parse(storedConnection) as NetlifyConnection;
+  } catch {
+    localStorage.removeItem('netlify_connection');
+  }
+}
 
 export const netlifyConnection = atom<NetlifyConnection>(initialConnection);
 export const isConnecting = atom<boolean>(false);
 export const isFetchingStats = atom<boolean>(false);
+
+export function clearNetlifyConnection(reason = 'Your Netlify connection expired. Please reconnect.') {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('netlify_connection');
+    Cookies.remove('VITE_NETLIFY_ACCESS_TOKEN');
+    Cookies.remove('netlifyToken');
+  }
+
+  netlifyConnection.set({ user: null, token: '', stats: undefined });
+  toast.warning(reason);
+}
 
 // Function to initialize Netlify connection with environment token
 export async function initializeNetlifyConnection() {
@@ -42,7 +60,10 @@ export async function initializeNetlifyConnection() {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to connect to Netlify: ${response.statusText}`);
+      if (response.status === 401 || response.status === 403) {
+        clearNetlifyConnection();
+      }
+      throw new Error(`Netlify connection failed (${response.status})`);
     }
 
     const userData = await response.json();
@@ -92,7 +113,10 @@ export async function fetchNetlifyStats(token: string) {
     });
 
     if (!sitesResponse.ok) {
-      throw new Error(`Failed to fetch sites: ${sitesResponse.status}`);
+      if (sitesResponse.status === 401 || sitesResponse.status === 403) {
+        clearNetlifyConnection();
+      }
+      throw new Error(`Netlify statistics request failed (${sitesResponse.status})`);
     }
 
     const sites = (await sitesResponse.json()) as any;
@@ -106,9 +130,11 @@ export async function fetchNetlifyStats(token: string) {
       },
     });
   } catch (error) {
-    console.error('Netlify API Error:', error);
-    logStore.logError('Failed to fetch Netlify stats', { error });
-    toast.error('Failed to fetch Netlify statistics');
+    console.error('Netlify API Error:', error instanceof Error ? error.name : 'unknown');
+    logStore.logError('Failed to fetch Netlify stats');
+    if (!(error instanceof Error && error.message.startsWith('Netlify statistics request failed'))) {
+      toast.error('Failed to fetch Netlify statistics');
+    }
   } finally {
     isFetchingStats.set(false);
   }

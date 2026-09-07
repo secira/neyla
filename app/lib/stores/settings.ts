@@ -57,6 +57,27 @@ const AUTO_ENABLED_KEY = 'auto_enabled_providers';
 // Add this helper function at the top of the file
 const isBrowser = typeof window !== 'undefined';
 
+function readStoredJson<T>(key: string, fallback: T): T {
+  if (!isBrowser) {
+    return fallback;
+  }
+
+  const raw = localStorage.getItem(key);
+
+  if (!raw) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as T) : fallback;
+  } catch (error) {
+    console.error(`Error parsing saved setting "${key}":`, error instanceof Error ? error.name : 'unknown');
+    localStorage.removeItem(key);
+    return fallback;
+  }
+}
+
 // Interface for configured provider info from server
 interface ConfiguredProvider {
   name: string;
@@ -99,20 +120,16 @@ const getInitialProviderSettings = (): ProviderSetting => {
 
   // Only try to load from localStorage in the browser
   if (isBrowser) {
-    const savedSettings = localStorage.getItem(PROVIDER_SETTINGS_KEY);
+    const parsed = readStoredJson<Record<string, IProviderConfig>>(PROVIDER_SETTINGS_KEY, {});
 
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        Object.entries(parsed).forEach(([key, value]) => {
-          if (initialSettings[key]) {
-            initialSettings[key].settings = (value as IProviderConfig).settings;
-          }
-        });
-      } catch (error) {
-        console.error('Error parsing saved provider settings:', error);
+    Object.entries(parsed).forEach(([key, value]) => {
+      if (initialSettings[key] && value?.settings && typeof value.settings === 'object') {
+        initialSettings[key].settings = {
+          ...initialSettings[key].settings,
+          enabled: Boolean(value.settings.enabled),
+        };
       }
-    }
+    });
   }
 
   return initialSettings;
@@ -128,10 +145,11 @@ const autoEnableConfiguredProviders = async () => {
     const configuredProviders = await fetchConfiguredProviders();
     const currentSettings = providersStore.get();
     const savedSettings = localStorage.getItem(PROVIDER_SETTINGS_KEY);
-    const autoEnabledProviders = localStorage.getItem(AUTO_ENABLED_KEY);
+    const previouslyAutoEnabled = readStoredJson<string[]>(AUTO_ENABLED_KEY, []).filter(
+      (provider) => typeof provider === 'string',
+    );
 
     // Track which providers were auto-enabled to avoid overriding user preferences
-    const previouslyAutoEnabled = autoEnabledProviders ? JSON.parse(autoEnabledProviders) : [];
     const newlyAutoEnabled: string[] = [];
 
     let hasChanges = false;

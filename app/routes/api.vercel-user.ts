@@ -2,6 +2,10 @@ import { json } from '@remix-run/cloudflare';
 import { getApiKeysFromCookie } from '~/lib/api/cookies';
 import { withSecurity } from '~/lib/security';
 
+function safeErrorLabel(error: unknown) {
+  return error instanceof Error ? error.name : 'unknown';
+}
+
 async function vercelUserLoader({ request, context }: { request: Request; context: any }) {
   try {
     // Get API keys from cookies (server-side only)
@@ -61,14 +65,8 @@ async function vercelUserLoader({ request, context }: { request: Request; contex
       username: userData.user.username,
     });
   } catch (error) {
-    console.error('Error fetching Vercel user:', error);
-    return json(
-      {
-        error: 'Failed to fetch Vercel user information',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    );
+    console.error('Error fetching Vercel user:', safeErrorLabel(error));
+    return json({ error: 'Failed to fetch Vercel user information' }, { status: 500 });
   }
 }
 
@@ -144,14 +142,8 @@ async function vercelUserAction({ request, context }: { request: Request; contex
 
     return json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('Error in Vercel user action:', error);
-    return json(
-      {
-        error: 'Failed to process Vercel request',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    );
+    console.error('Error in Vercel user action:', safeErrorLabel(error));
+    return json({ error: 'Failed to process Vercel request' }, { status: 500 });
   }
 }
 
