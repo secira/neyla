@@ -397,7 +397,7 @@ export const Workbench = memo(
         >
           <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border-l border-bolt-elements-borderColor overflow-hidden">
                 {/* Workbench toolbar */}
-                <div className="flex items-center h-10 px-2 border-b border-bolt-elements-borderColor gap-1 bg-bolt-elements-background-depth-1">
+                <div className="flex items-center h-9 px-2 border-b border-slate-200 gap-1 bg-white dark:border-slate-800 dark:bg-slate-950">
                   {/* Sidebar toggle */}
                   <button
                     title={showChat ? 'Hide chat' : 'Show chat'}
@@ -407,7 +407,7 @@ export const Workbench = memo(
                         chatStore.setKey('showChat', !showChat);
                       }
                     }}
-                    className="flex items-center justify-center w-7 h-7 rounded-md text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center justify-center w-7 h-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-900 dark:hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     <div className={showChat ? 'i-ph:sidebar-simple-fill text-base' : 'i-ph:sidebar-simple text-base'} />
                   </button>
@@ -415,7 +415,7 @@ export const Workbench = memo(
                   <div className="w-px h-5 bg-bolt-elements-borderColor mx-1" />
 
                   {/* View tabs — Code / Changes / Preview */}
-                  <div className="flex items-center gap-0.5 bg-bolt-elements-background-depth-2 rounded-lg p-0.5 border border-bolt-elements-borderColor">
+                  <div className="flex items-center gap-0.5 rounded-md border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-900">
                     {(
                       [
                         { value: 'code', label: 'Code', icon: 'i-ph:code' },
@@ -429,8 +429,8 @@ export const Workbench = memo(
                         className={classNames(
                           'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors',
                           selectedView === value
-                            ? 'bg-bolt-elements-background-depth-1 text-bolt-elements-textPrimary shadow-sm'
-                            : 'text-bolt-elements-textTertiary hover:text-bolt-elements-textSecondary',
+                             ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                             : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200',
                         )}
                       >
                         <div className={`${icon} text-sm`} />
@@ -439,7 +439,7 @@ export const Workbench = memo(
                     ))}
                   </div>
 
-                  <div className="w-px h-5 bg-bolt-elements-borderColor mx-0.5" />
+                   <div className="w-px h-5 bg-slate-200 mx-0.5 dark:bg-slate-800" />
 
                   {/* Utility tabs — Secrets / Settings */}
                   {(
@@ -456,7 +456,7 @@ export const Workbench = memo(
                         'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
                         selectedView === value
                           ? 'text-orange-500 bg-orange-500/10'
-                          : 'text-bolt-elements-textTertiary hover:text-bolt-elements-textSecondary hover:bg-bolt-elements-background-depth-3',
+                           : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-900 dark:hover:text-slate-200',
                       )}
                     >
                       <div className={`${icon} text-sm`} />
@@ -475,14 +475,14 @@ export const Workbench = memo(
                           title={isSyncing ? 'Syncing…' : 'Download files to computer'}
                           disabled={isSyncing || streaming}
                           onClick={handleSyncFiles}
-                          className="flex items-center justify-center w-7 h-7 rounded-md text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                           className="flex items-center justify-center w-7 h-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-900 dark:hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
                           <div className={isSyncing ? 'i-svg-spinners:3-dots-fade text-base' : 'i-ph:download-simple text-base'} />
                         </button>
                         <button
                           title="Toggle terminal"
                           onClick={() => workbenchStore.toggleTerminal(!workbenchStore.showTerminal.get())}
-                          className="flex items-center justify-center w-7 h-7 rounded-md text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 transition-colors"
+                           className="flex items-center justify-center w-7 h-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-900 dark:hover:text-white transition-colors"
                         >
                           <div className="i-ph:terminal-window text-base" />
                         </button>
@@ -492,13 +492,13 @@ export const Workbench = memo(
                       <FileModifiedDropdown fileHistory={fileHistory} onSelectFile={handleSelectFile} />
                     )}
 
-                    <div className="w-px h-5 bg-bolt-elements-borderColor mx-0.5" />
+                     <div className="w-px h-5 bg-slate-200 mx-0.5 dark:bg-slate-800" />
 
                     {/* Close workbench */}
                     <button
                       title="Close editor"
                       onClick={() => workbenchStore.showWorkbench.set(false)}
-                      className="flex items-center justify-center w-7 h-7 rounded-md text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 transition-colors"
+                       className="flex items-center justify-center w-7 h-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-900 dark:hover:text-white transition-colors"
                     >
                       <div className="i-ph:x text-base" />
                     </button>
