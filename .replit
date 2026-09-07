@@ -51,6 +51,9 @@ build = ["echo", "Build included in source"]
 [userenv.development]
 APP_URL = "https://8f7d4283-06fa-4345-bb5f-2a83e3d3b5db-00-1zafz9x58bohk.pike.replit.dev"
 
+[userenv.shared]
+PLATFORM_ADMIN_EMAILS = "udayid@gmail.com"
+
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 120000

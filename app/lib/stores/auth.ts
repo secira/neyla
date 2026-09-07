@@ -8,10 +8,16 @@ export interface AuthUser {
   created_at?: string;
 }
 
+const DEFAULT_ADMIN_EMAIL = 'udayid@gmail.com';
+
 export const authUserAtom = atom<AuthUser | null | undefined>(undefined);
 export const authLoadingAtom = atom<boolean>(true);
 
 export const isAuthenticatedAtom = computed(authUserAtom, (user) => user != null);
+
+export function isDefaultAdmin(user: Pick<AuthUser, 'email'> | null | undefined): boolean {
+  return user?.email?.trim().toLowerCase() === DEFAULT_ADMIN_EMAIL;
+}
 
 export async function fetchCurrentUser(): Promise<void> {
   authLoadingAtom.set(true);

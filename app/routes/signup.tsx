@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from '@remix-run/react';
-import { authUserAtom, authLoadingAtom, fetchCurrentUser } from '~/lib/stores/auth';
+import { authUserAtom, authLoadingAtom, fetchCurrentUser, isDefaultAdmin } from '~/lib/stores/auth';
 import { useStore } from '@nanostores/react';
 import { openOAuthPopup, OAUTH_ERROR_MESSAGES } from '~/lib/utils/oauthPopup';
 
@@ -21,7 +21,7 @@ export default function Signup() {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/');
+      navigate(isDefaultAdmin(user) ? '/admin' : '/');
     }
   }, [user, loading, navigate]);
 
@@ -44,7 +44,7 @@ export default function Signup() {
         setError(data.error || 'Signup failed');
       } else {
         authUserAtom.set(data.user);
-        navigate('/');
+        navigate(isDefaultAdmin(data.user) ? '/admin' : '/');
       }
     } catch {
       setError('Network error. Please try again.');
@@ -77,7 +77,8 @@ export default function Signup() {
     }
 
     if (outcome.type === 'success') {
-      window.location.href = '/';
+      await fetchCurrentUser();
+      window.location.href = isDefaultAdmin(authUserAtom.get()) ? '/admin' : '/';
     } else {
       setError(OAUTH_ERROR_MESSAGES[outcome.error || ''] || 'Authentication failed. Please try again.');
     }
