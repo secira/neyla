@@ -7,6 +7,7 @@ import {
   CreateSecurityGroupCommand,
   AuthorizeSecurityGroupIngressCommand,
   RunInstancesCommand,
+  TerminateInstancesCommand,
 } from '@aws-sdk/client-ec2';
 
 const REGION = process.env.AWS_DEPLOY_REGION || 'ap-south-1';
@@ -149,4 +150,12 @@ export async function getInstanceState(instanceId) {
     state: instance.State?.Name,
     publicIp: instance.PublicIpAddress || null,
   };
+}
+
+export async function terminateInstance(instanceId) {
+  if (!instanceId) {
+    return;
+  }
+
+  await getClient().send(new TerminateInstancesCommand({ InstanceIds: [instanceId] }));
 }

@@ -17,7 +17,7 @@ export interface ConnectionState {
 
 export interface UseGitHubConnectionReturn extends ConnectionState {
   connect: (token: string, tokenType: 'classic' | 'fine-grained') => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
   refreshConnection: () => Promise<void>;
   testConnection: () => Promise<boolean>;
 }
@@ -166,7 +166,26 @@ export function useGitHubConnection(): UseGitHubConnectionReturn {
     }
   }, []);
 
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback(async () => {
+    try {
+      const response = await fetch('/api/auth/providers/github', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok && response.status !== 404) {
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        const message = data.error || 'Failed to disconnect GitHub';
+        setError(message);
+        toast.error(message);
+        return;
+      }
+    } catch {
+      setError('Failed to disconnect GitHub. Please try again.');
+      toast.error('Failed to disconnect GitHub. Please try again.');
+      return;
+    }
+
     // Clear localStorage
     localStorage.removeItem(STORAGE_KEY);
 

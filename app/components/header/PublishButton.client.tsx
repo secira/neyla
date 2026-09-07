@@ -22,6 +22,11 @@ interface DeploymentResponse {
   awsConfigured: boolean;
 }
 
+interface DeploymentApiResponse {
+  error?: string;
+  deployment?: DeploymentInfo | null;
+}
+
 const STEPS: Array<{ key: string; label: string; statuses: string[] }> = [
   { key: 'provisioning', label: 'Setting up your server', statuses: ['provisioning'] },
   { key: 'booting', label: 'Starting the server', statuses: ['booting'] },
@@ -73,6 +78,7 @@ export function PublishButton() {
   const [info, setInfo] = useState<DeploymentResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [revoking, setRevoking] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -186,18 +192,54 @@ export function PublishButton() {
         body: JSON.stringify({ files: payloadFiles }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as DeploymentApiResponse;
 
       if (!res.ok) {
         throw new Error(data.error || 'Failed to publish');
       }
 
-      setInfo({ deployment: data.deployment, awsConfigured: true });
+      setInfo({ deployment: data.deployment ?? null, awsConfigured: true });
       toast.success('Publishing started!');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to publish');
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const revokeAgent = async () => {
+    if (!workspaceId || !deployment || revoking || inProgress) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        'Revoke this deployment credential? The current published server will be stopped, and you will need to publish again to reconnect it.',
+      )
+    ) {
+      return;
+    }
+
+    setRevoking(true);
+
+    try {
+      const res = await fetch(`/api/deployments/workspace/${workspaceId}/revoke-agent`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = (await res.json()) as DeploymentApiResponse;
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to revoke deployment credential');
+      }
+
+      const fresh = await fetchDeployment(workspaceId);
+      setInfo(fresh);
+      toast.success('Deployment credential revoked. Publish again to reconnect your server.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to revoke deployment credential');
+    } finally {
+      setRevoking(false);
     }
   };
 
@@ -288,6 +330,26 @@ export function PublishButton() {
                 </div>
               )}
 
+              {deployment && deployment.status !== 'error' && !inProgress && (
+                <button
+                  onClick={revokeAgent}
+                  disabled={revoking}
+                  className="rounded-md px-3 py-2 text-sm border border-red-300 text-red-600 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed hover:bg-red-50 dark:hover:bg-red-950/20"
+                >
+                  {revoking ? (
+                    <>
+                      <div className="i-svg-spinners:90-ring-with-bg" />
+                      <span>Revoking…</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="i-ph:shield-warning" />
+                      <span>Revoke deployment credential</span>
+                    </>
+                  )}
+                </button>
+              )}
+
               {deployment?.status === 'live' && deployment.url && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-sm text-bolt-elements-textPrimary">
@@ -319,7 +381,7 @@ export function PublishButton() {
                 ) : (
                   <>
                     <div className="i-ph:rocket-launch" />
-                    <span>{deployment ? 'Publish update' : 'Publish'}</span>
+                    <span>{deployment?.status === 'error' ? 'Publish with new credential' : deployment ? 'Publish update' : 'Publish'}</span>
                   </>
                 )}
               </button>

@@ -7,6 +7,7 @@ import { signToken, JWT_SECRET } from '../middleware/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { ensurePersonalOrganization } from '../lib/projectFoundation.js';
 import { decryptCredential, encryptCredential } from '../lib/credentialVault.js';
+import { recordSecurityEvent } from '../lib/securityAudit.js';
 
 const router = Router();
 
@@ -444,6 +445,51 @@ router.put('/settings', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Update settings error:', err);
     return res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+router.delete('/providers/:provider', requireAuth, async (req, res) => {
+  const provider = String(req.params.provider || '').toLowerCase();
+
+  if (!['github', 'google'].includes(provider)) {
+    return res.status(400).json({ error: 'Unsupported provider' });
+  }
+
+  try {
+    const providerResult = await pool.query(
+      'SELECT id FROM user_auth_providers WHERE user_id = $1 AND provider = $2',
+      [req.user.id, provider],
+    );
+
+    if (providerResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Provider is not connected' });
+    }
+
+    const [passwordResult, providerCountResult] = await Promise.all([
+      pool.query('SELECT 1 FROM user_passwords WHERE user_id = $1', [req.user.id]),
+      pool.query('SELECT COUNT(*)::int AS count FROM user_auth_providers WHERE user_id = $1', [req.user.id]),
+    ]);
+
+    if (!passwordResult.rows.length && providerCountResult.rows[0].count <= 1) {
+      return res.status(409).json({
+        error: 'Connect another sign-in method before disconnecting your only account login.',
+      });
+    }
+
+    await pool.query('DELETE FROM user_auth_providers WHERE user_id = $1 AND provider = $2', [
+      req.user.id,
+      provider,
+    ]);
+    await recordSecurityEvent({
+      userId: req.user.id,
+      action: 'provider_disconnected',
+      provider,
+    });
+
+    return res.json({ success: true, provider, connected: false });
+  } catch (err) {
+    console.error('Provider disconnect error:', err?.code || err?.name || 'unknown');
+    return res.status(500).json({ error: 'Failed to disconnect provider' });
   }
 });
 

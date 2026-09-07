@@ -2,9 +2,10 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import pool from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
-import { isAwsConfigured, launchInstance, getInstanceState } from '../lib/aws.js';
+import { isAwsConfigured, launchInstance, getInstanceState, terminateInstance } from '../lib/aws.js';
 import { buildUserData } from '../lib/deployAgent.js';
 import { decryptCredential, encryptCredential } from '../lib/credentialVault.js';
+import { recordSecurityEvent } from '../lib/securityAudit.js';
 
 const router = Router();
 
@@ -237,6 +238,71 @@ router.get('/workspace/:workspaceId', async (req, res) => {
   } catch (err) {
     console.error('Get deployment error:', err);
     return res.status(500).json({ error: 'Failed to fetch deployment' });
+  }
+});
+
+router.post('/workspace/:workspaceId/revoke-agent', async (req, res) => {
+  try {
+    const workspace = await getOwnedWorkspace(req, res);
+
+    if (!workspace) {
+      return undefined;
+    }
+
+    const result = await pool.query(
+      'SELECT id, instance_id FROM deployments WHERE workspace_id = $1 AND user_id = $2',
+      [workspace.id, req.user.id],
+    );
+    const deployment = result.rows[0];
+
+    if (!deployment) {
+      return res.status(404).json({ error: 'No deployment agent is active for this project' });
+    }
+
+    const replacementToken = crypto.randomBytes(32).toString('hex');
+
+    await pool.query(
+      `UPDATE deployments
+       SET agent_token = NULL,
+           agent_token_ciphertext = $1,
+           instance_id = NULL,
+           public_ip = NULL,
+           url = NULL,
+           status = 'error',
+           status_detail = 'Deployment credential revoked. Publish again to reconnect your server.',
+           error = 'Deployment credential revoked',
+           last_agent_poll = NULL,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [encryptCredential(replacementToken), deployment.id],
+    );
+
+    if (deployment.instance_id && isAwsConfigured()) {
+      try {
+        await terminateInstance(deployment.instance_id);
+      } catch (terminateError) {
+        console.error('Revoked deployment termination failed:', terminateError?.code || terminateError?.name || 'unknown');
+      }
+    }
+
+    await recordSecurityEvent({
+      userId: req.user.id,
+      action: 'deployment_agent_revoked',
+      deploymentId: deployment.id,
+      metadata: { instanceTerminated: Boolean(deployment.instance_id && isAwsConfigured()) },
+    });
+
+    return res.json({
+      success: true,
+      deployment: {
+        id: deployment.id,
+        status: 'error',
+        statusDetail: 'Deployment credential revoked. Publish again to reconnect your server.',
+      },
+    });
+  } catch (err) {
+    console.error('Revoke deployment agent error:', err?.code || err?.name || 'unknown');
+    return res.status(500).json({ error: 'Failed to revoke deployment agent' });
   }
 });
 
