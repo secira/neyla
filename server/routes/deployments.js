@@ -12,9 +12,56 @@ const router = Router();
 const MAX_FILES = 500;
 const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10 MB
 const AGENT_STALE_MS = 60 * 1000;
+const DEPLOYMENT_LOG_LIMIT = 100;
+const DEPLOYMENT_LOG_PHASES = new Set([
+  'provisioning',
+  'booting',
+  'packaging',
+  'deployment',
+  'health_check',
+  'revocation',
+  'error',
+]);
+const DEPLOYMENT_LOG_LEVELS = new Set(['info', 'success', 'warning', 'error']);
 
 function safeErrorLabel(error) {
   return error?.code || error?.name || 'unknown';
+}
+
+function safeDeploymentMessage(message) {
+  return String(message)
+    .slice(0, 300)
+    .replace(/(bearer\s+)[^\s]+/gi, '$1[redacted]')
+    .replace(/((?:token|secret|password|credential|api[_-]?key)\s*[:=]\s*)[^\s]+/gi, '$1[redacted]')
+    .replace(/\b[a-f0-9]{32,}\b/gi, '[redacted]');
+}
+
+async function recordDeploymentLog(deploymentId, phase, level, message) {
+  if (!DEPLOYMENT_LOG_PHASES.has(phase) || !DEPLOYMENT_LOG_LEVELS.has(level)) {
+    return;
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO deployment_logs (deployment_id, phase, level, message)
+       VALUES ($1, $2, $3, $4)`,
+      [deploymentId, phase, level, safeDeploymentMessage(message)],
+    );
+  } catch (err) {
+    // Logging must never stop a publish or agent status update.
+    console.error('Deployment log error:', safeErrorLabel(err));
+  }
+}
+
+function agentProgressMessage(detail) {
+  const allowedMessages = new Set([
+    'Downloading your app',
+    'Installing dependencies',
+    'Building your app',
+    'Starting your app',
+  ]);
+
+  return allowedMessages.has(detail) ? detail : 'Deployment in progress';
 }
 
 function getServerBase() {
@@ -52,6 +99,8 @@ async function setStatus(deploymentId, status, { detail = null, error = null, ex
 }
 
 async function provisionInFlight(deployment) {
+  await recordDeploymentLog(deployment.id, 'provisioning', 'info', 'Setting up your server on AWS');
+
   try {
     const instanceId = await launchInstance({
       name: `neyla-${deployment.id.slice(0, 8)}`,
@@ -66,6 +115,7 @@ async function provisionInFlight(deployment) {
       "UPDATE deployments SET instance_id = $1, status = 'booting', status_detail = 'Waiting for the server to start', updated_at = NOW() WHERE id = $2",
       [instanceId, deployment.id],
     );
+    await recordDeploymentLog(deployment.id, 'booting', 'info', 'Server launched; waiting for it to start');
 
     // Poll for the public IP (up to ~3 minutes)
     for (let attempt = 0; attempt < 36; attempt++) {
@@ -77,6 +127,12 @@ async function provisionInFlight(deployment) {
         await pool.query(
           "UPDATE deployments SET public_ip = $1, url = $2, status = 'deploying', status_detail = 'Server is up — installing your app', updated_at = NOW() WHERE id = $3",
           [state.publicIp, `http://${state.publicIp}`, deployment.id],
+        );
+        await recordDeploymentLog(
+          deployment.id,
+          'deployment',
+          'info',
+          'Server is ready; installing your app',
         );
         return;
       }
@@ -92,6 +148,7 @@ async function provisionInFlight(deployment) {
     await setStatus(deployment.id, 'error', {
       error: 'Failed to set up the server',
     });
+    await recordDeploymentLog(deployment.id, 'error', 'error', 'Failed to set up the server');
   }
 }
 
@@ -107,7 +164,7 @@ async function agentAuth(req, res) {
   }
 
   const result = await pool.query(
-    `SELECT id, workspace_id, user_id, bundle_version, agent_token_ciphertext
+    `SELECT id, workspace_id, user_id, bundle_version, status, status_detail, agent_token_ciphertext
      FROM deployments WHERE id = $1`,
     [req.params.id],
   );
@@ -161,6 +218,7 @@ router.get('/agent/:id/bundle', async (req, res) => {
       return res.status(404).json({ error: 'No bundle' });
     }
 
+    await recordDeploymentLog(deployment.id, 'packaging', 'info', 'App bundle delivered to the server');
     return res.json({ version: bundle.rows[0].version, files: bundle.rows[0].files });
   } catch (err) {
     console.error('Agent bundle error:', safeErrorLabel(err));
@@ -187,11 +245,25 @@ router.post('/agent/:id/status', async (req, res) => {
         "UPDATE deployments SET status = 'live', status_detail = NULL, error = NULL, deployed_version = $1, last_agent_poll = NOW(), updated_at = NOW() WHERE id = $2",
         [Number(version) || deployment.bundle_version, deployment.id],
       );
+      await recordDeploymentLog(deployment.id, 'health_check', 'success', 'App health check passed; your app is live');
     } else {
-      await setStatus(deployment.id, status, {
-        detail: typeof detail === 'string' ? detail.slice(0, 300) : null,
-        error: typeof error === 'string' ? error.slice(0, 1000) : null,
-      });
+      if (status === 'deploying') {
+        const progressMessage = agentProgressMessage(detail);
+        await setStatus(deployment.id, status, {
+          detail: progressMessage,
+          error: null,
+        });
+
+        if (progressMessage !== deployment.status_detail || deployment.status !== status) {
+          await recordDeploymentLog(deployment.id, 'deployment', 'info', progressMessage);
+        }
+      } else {
+        await setStatus(deployment.id, status, {
+          detail: null,
+          error: 'The app could not be deployed',
+        });
+        await recordDeploymentLog(deployment.id, 'error', 'error', 'The app could not be deployed');
+      }
     }
 
     return res.json({ ok: true });
@@ -245,6 +317,48 @@ router.get('/workspace/:workspaceId', async (req, res) => {
   }
 });
 
+router.get('/workspace/:workspaceId/logs', async (req, res) => {
+  try {
+    const workspace = await getOwnedWorkspace(req, res);
+
+    if (!workspace) {
+      return undefined;
+    }
+
+    const deploymentResult = await pool.query(
+      'SELECT id FROM deployments WHERE workspace_id = $1 AND user_id = $2',
+      [workspace.id, req.user.id],
+    );
+    const deployment = deploymentResult.rows[0];
+
+    if (!deployment) {
+      return res.json({ logs: [] });
+    }
+
+    const result = await pool.query(
+      `SELECT id, phase, level, message, created_at
+       FROM deployment_logs
+       WHERE deployment_id = $1
+       ORDER BY created_at ASC, id ASC
+       LIMIT $2`,
+      [deployment.id, DEPLOYMENT_LOG_LIMIT],
+    );
+
+    return res.json({
+      logs: result.rows.map((row) => ({
+        id: row.id,
+        phase: row.phase,
+        level: DEPLOYMENT_LOG_LEVELS.has(row.level) ? row.level : 'info',
+        message: safeDeploymentMessage(row.message),
+        createdAt: row.created_at,
+      })),
+    });
+  } catch (err) {
+    console.error('Get deployment logs error:', safeErrorLabel(err));
+    return res.status(500).json({ error: 'Failed to fetch deployment logs' });
+  }
+});
+
 router.post('/workspace/:workspaceId/revoke-agent', async (req, res) => {
   try {
     const workspace = await getOwnedWorkspace(req, res);
@@ -295,6 +409,12 @@ router.post('/workspace/:workspaceId/revoke-agent', async (req, res) => {
       deploymentId: deployment.id,
       metadata: { instanceTerminated: Boolean(deployment.instance_id && isAwsConfigured()) },
     });
+    await recordDeploymentLog(
+      deployment.id,
+      'revocation',
+      'warning',
+      'Deployment credential revoked; publish again to reconnect your server',
+    );
 
     return res.json({
       success: true,
@@ -428,6 +548,9 @@ router.post('/workspace/:workspaceId/publish', async (req, res) => {
     if (needsProvisioning) {
       // Fire-and-forget: provisioning takes minutes; the UI polls for status.
       provisionInFlight(deployment);
+    } else {
+      await recordDeploymentLog(deployment.id, 'packaging', 'info', `App bundle saved (version ${newVersion})`);
+      await recordDeploymentLog(deployment.id, 'deployment', 'info', 'Update queued for the deployment server');
     }
 
     const fresh = await pool.query(

@@ -198,6 +198,48 @@ describe('deployment credential boundaries', () => {
     expect(body.deployment).not.toHaveProperty('agent_token_ciphertext');
   });
 
+  it('requires authentication and ownership to read deployment activity', async () => {
+    const unauthenticatedResponse = await fetch(`${baseUrl}/deployments/workspace/workspace-1/logs`);
+
+    expect(unauthenticatedResponse.status).toBe(401);
+    expect(poolQuery).not.toHaveBeenCalled();
+
+    poolQuery
+      .mockResolvedValueOnce({ rows: [{ id: 'workspace-1' }] })
+      .mockResolvedValueOnce({ rows: [{ id: deployment.id }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 1,
+            phase: 'deployment',
+            level: 'info',
+            message: 'Bearer [redacted] token=[redacted]',
+            created_at: '2026-09-07T00:00:00.000Z',
+          },
+        ],
+      });
+
+    const authCookie = signToken({ id: USER.id, email: USER.email, name: USER.name });
+    const response = await fetch(`${baseUrl}/deployments/workspace/workspace-1/logs`, {
+      headers: { Cookie: `neyla_token=${authCookie}` },
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      logs: [
+        {
+          id: 1,
+          phase: 'deployment',
+          level: 'info',
+          message: 'Bearer [redacted] token=[redacted]',
+          createdAt: '2026-09-07T00:00:00.000Z',
+        },
+      ],
+    });
+    expect(JSON.stringify(body)).not.toContain(AGENT_TOKEN);
+  });
+
   it('does not expose credential-bearing agent errors in responses or logs', async () => {
     const knownCredential = 'agent-database-error-bearer';
     poolQuery.mockRejectedValue(new Error(`database failed for ${knownCredential}`));
@@ -211,5 +253,31 @@ describe('deployment credential boundaries', () => {
     expect(body).toEqual({ error: 'Poll failed' });
     expect(JSON.stringify(body)).not.toContain(knownCredential);
     expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(knownCredential);
+  });
+
+  it('normalizes agent status details and errors before storing them', async () => {
+    const deploymentWithStatus = {
+      ...deployment,
+      status: 'deploying',
+      status_detail: 'Downloading your app',
+    };
+    poolQuery
+      .mockResolvedValueOnce({ rows: [deploymentWithStatus] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const response = await fetch(`${baseUrl}/deployments/agent/${deployment.id}/status`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${AGENT_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: 'error', error: `failed with ${AGENT_TOKEN}` }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(poolQuery.mock.calls[1][1]).toEqual(['error', null, 'The app could not be deployed', deployment.id]);
+    expect(poolQuery.mock.calls.flat().join(' ')).not.toContain(AGENT_TOKEN);
   });
 });
