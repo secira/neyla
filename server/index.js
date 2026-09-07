@@ -7,6 +7,7 @@ import projectRoutes from './routes/projects.js';
 import paymentRoutes from './routes/payments.js';
 import sandboxRoutes from './routes/sandbox.js';
 import deploymentRoutes from './routes/deployments.js';
+import adminRoutes from './routes/admin.js';
 import { runMigrations } from './migrations/run.js';
 import { migrateStoredCredentials } from './lib/credentialVault.js';
 
@@ -29,6 +30,7 @@ app.use('/projects', projectRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/sandbox', sandboxRoutes);
 app.use('/deployments', deploymentRoutes);
+app.use('/admin', adminRoutes);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 

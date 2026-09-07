@@ -7,6 +7,7 @@ import { signToken, JWT_SECRET } from '../middleware/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { ensurePersonalOrganization } from '../lib/projectFoundation.js';
 import { decryptCredential, encryptCredential } from '../lib/credentialVault.js';
+import { encryptManagedSecret, secretMetadata } from '../lib/managedSecrets.js';
 import { recordSecurityEvent } from '../lib/securityAudit.js';
 
 const router = Router();
@@ -494,6 +495,69 @@ router.delete('/providers/:provider', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Provider disconnect error:', err?.code || err?.name || 'unknown');
     return res.status(500).json({ error: 'Failed to disconnect provider' });
+  }
+});
+
+router.get('/secrets', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, provider, key_name, hint, enabled, created_at, updated_at FROM user_secrets WHERE user_id = $1 ORDER BY provider, key_name',
+      [req.user.id],
+    );
+    return res.json({ secrets: result.rows.map(secretMetadata) });
+  } catch (err) {
+    console.error('List user secrets error:', safeErrorLabel(err));
+    return res.status(500).json({ error: 'Failed to fetch secrets' });
+  }
+});
+
+router.post('/secrets', requireAuth, async (req, res) => {
+  const { provider, key_name: keyName, value } = req.body || {};
+  if (!provider || !keyName || !value) return res.status(400).json({ error: 'Provider, key name, and value are required' });
+  try {
+    const encrypted = encryptManagedSecret(value);
+    const result = await pool.query(
+      `INSERT INTO user_secrets (user_id, provider, key_name, ciphertext, hint)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id, provider, key_name) DO UPDATE SET ciphertext = EXCLUDED.ciphertext, hint = EXCLUDED.hint, enabled = TRUE, updated_at = NOW()
+       RETURNING id, provider, key_name, hint, enabled, created_at, updated_at`,
+      [req.user.id, provider, keyName, encrypted.ciphertext, encrypted.hint],
+    );
+    return res.status(201).json({ secret: secretMetadata(result.rows[0]) });
+  } catch (err) {
+    console.error('Save user secret error:', safeErrorLabel(err));
+    return res.status(500).json({ error: 'Failed to save secret' });
+  }
+});
+
+router.put('/secrets/:id', requireAuth, async (req, res) => {
+  const { value, enabled, provider, key_name: keyName } = req.body || {};
+  try {
+    const fields = [], params = [];
+    if (value) { const encrypted = encryptManagedSecret(value); fields.push(`ciphertext = $${params.push(encrypted.ciphertext)}`, `hint = $${params.push(encrypted.hint)}`); }
+    if (typeof enabled === 'boolean') fields.push(`enabled = $${params.push(enabled)}`);
+    if (provider) fields.push(`provider = $${params.push(provider)}`);
+    if (keyName) fields.push(`key_name = $${params.push(keyName)}`);
+    if (!fields.length) return res.status(400).json({ error: 'No changes supplied' });
+    fields.push('updated_at = NOW()');
+    params.push(req.user.id, req.params.id);
+    const result = await pool.query(`UPDATE user_secrets SET ${fields.join(', ')} WHERE user_id = $${params.length - 1} AND id = $${params.length} RETURNING id, provider, key_name, hint, enabled, created_at, updated_at`, params);
+    if (!result.rows.length) return res.status(404).json({ error: 'Secret not found' });
+    return res.json({ secret: secretMetadata(result.rows[0]) });
+  } catch (err) {
+    console.error('Update user secret error:', safeErrorLabel(err));
+    return res.status(500).json({ error: 'Failed to update secret' });
+  }
+});
+
+router.delete('/secrets/:id', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM user_secrets WHERE user_id = $1 AND id = $2 RETURNING id', [req.user.id, req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Secret not found' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Delete user secret error:', safeErrorLabel(err));
+    return res.status(500).json({ error: 'Failed to delete secret' });
   }
 });
 

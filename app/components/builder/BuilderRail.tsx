@@ -45,6 +45,14 @@ export function BuilderRail() {
           <span className="i-ph:lightning" />
         </a>
         <a
+          href="/secrets"
+          aria-label="Secrets"
+          title="Secrets"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-[17px] text-slate-500 transition-colors hover:bg-white hover:text-purple-500 dark:hover:bg-slate-900"
+        >
+          <span className="i-ph:keyhole" />
+        </a>
+        <a
           href="/projects"
           aria-label="Settings and projects"
           title="Settings and projects"
